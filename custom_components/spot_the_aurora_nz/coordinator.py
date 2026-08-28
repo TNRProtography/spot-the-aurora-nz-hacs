@@ -7,7 +7,6 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-import async_timeout
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -105,31 +104,47 @@ class AuroraCoordinator(DataUpdateCoordinator):
         self.longitude = self.hass.config.longitude
         self.location_source = "home"
 
-    async def _fetch(self, url: str) -> Any:
+    async def _fetch(self, url: str, label: str = "") -> Any:
+        """GET and decode JSON. Returns None on any failure, and says why.
+
+        Some upstreams serve JSON as text/plain, so content_type is not
+        enforced. A few reject requests without a User-Agent.
+        """
+        name = label or url
         try:
-            async with async_timeout.timeout(TIMEOUT):
-                resp = await self._session.get(url)
+            async with asyncio.timeout(TIMEOUT):
+                resp = await self._session.get(
+                    url, headers={"User-Agent": "HomeAssistant-SpotTheAuroraNZ"}
+                )
                 if resp.status != 200:
-                    _LOGGER.debug("%s returned HTTP %s", url, resp.status)
+                    _LOGGER.warning("%s returned HTTP %s", name, resp.status)
                     return None
                 return await resp.json(content_type=None)
-        except (asyncio.TimeoutError, Exception) as err:  # noqa: BLE001
-            _LOGGER.debug("Fetch failed for %s: %s", url, err)
+        except asyncio.TimeoutError:
+            _LOGGER.warning("%s timed out after %ss", name, TIMEOUT)
+            return None
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("%s failed: %s: %s", name, type(err).__name__, err)
             return None
 
     async def _async_update_data(self) -> dict[str, Any]:
         self._tick += 1
         self._resolve_location()
 
-        tasks = [self._fetch(SUBSTORM_URL), self._fetch(RTSW_URL)]
+        tasks = [
+            self._fetch(SUBSTORM_URL, "Substorm worker"),
+            self._fetch(RTSW_URL, "RTSW solar wind"),
+        ]
         # NOAA reissues the Kp forecast a few times a day, so poll it rarely.
-        want_kp = self._tick % 10 == 1 or not self._kp_cache
+        # Retry every cycle until we have data, then poll rarely - NOAA
+        # only reissues the forecast a few times a day.
+        want_kp = not self._kp_cache or self._tick % 10 == 1
         # The composite forecast payload is large; poll it half as often.
         want_forecast = self._tick % 2 == 1 or not self._forecast_cache
         if want_forecast:
-            tasks.append(self._fetch(FORECAST_URL))
+            tasks.append(self._fetch(FORECAST_URL, "Spot The Aurora forecast"))
         if want_kp:
-            tasks.append(self._fetch(KP_FORECAST_URL))
+            tasks.append(self._fetch(KP_FORECAST_URL, "NOAA Kp forecast"))
 
         results = await asyncio.gather(*tasks)
         substorm = results[0]
@@ -139,8 +154,17 @@ class AuroraCoordinator(DataUpdateCoordinator):
             if results[idx]:
                 self._forecast_cache = results[idx]
             idx += 1
-        if want_kp and results[idx]:
-            self._kp_cache = _parse_kp_forecast(results[idx])
+        if want_kp and idx < len(results):
+            parsed = _parse_kp_forecast(results[idx])
+            if parsed:
+                if not self._kp_cache:
+                    _LOGGER.info("Kp forecast loaded: %s entries", len(parsed))
+                self._kp_cache = parsed
+            elif results[idx] is not None:
+                _LOGGER.warning(
+                    "NOAA Kp forecast returned an unexpected shape: %.200s",
+                    results[idx],
+                )
         forecast = self._forecast_cache
 
         if not substorm and not forecast:
