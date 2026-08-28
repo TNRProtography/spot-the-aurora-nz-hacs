@@ -272,3 +272,34 @@ def tier_icon(tier: str) -> str:
         TIER_PHONE: "mdi:cellphone",
         TIER_CAMERA: "mdi:camera",
     }.get(tier, "mdi:sleep")
+
+
+# --- Kp visibility threshold ----------------------------------------------
+#
+# The equatorward auroral boundary sits near 66.5 deg corrected geomagnetic
+# latitude at Kp 0 and moves roughly 2 deg equatorward per Kp step. Aurora is
+# visible on the horizon from about 9 deg equatorward of that boundary, which
+# is the same allowance the oval code uses for its view line.
+#
+#     visible when  |gmag| >= 66.5 - 2*Kp - 9
+#     so            Kp_threshold = (57.5 - |gmag|) / 2
+#
+# Christchurch (-46.8 gmag) lands at Kp 5.4, consistent with the Kp 5 rule of
+# thumb aurora chasers use for the South Island.
+
+KP_BOUNDARY_BASE = 66.5
+KP_DEG_PER_STEP = 2.0
+KP_HORIZON_DEG = 9.0
+
+
+def kp_threshold_for_latitude(gmag_lat: float) -> float:
+    """Lowest Kp at which aurora becomes visible from this geomagnetic lat."""
+    return max(
+        0.0,
+        (KP_BOUNDARY_BASE - KP_HORIZON_DEG - abs(gmag_lat)) / KP_DEG_PER_STEP,
+    )
+
+
+def kp_boundary_gmag(kp: float) -> float:
+    """Equatorward auroral boundary for a given Kp, in geomagnetic degrees."""
+    return KP_BOUNDARY_BASE - KP_DEG_PER_STEP * max(0.0, kp)

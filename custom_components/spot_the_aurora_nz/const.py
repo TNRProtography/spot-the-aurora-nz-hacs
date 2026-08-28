@@ -13,6 +13,9 @@ SUBSTORM_URL = (
     "https://aurora-index-sta.thenamesrock.workers.dev/api/substorm?resolution=5m"
 )
 RTSW_URL = "https://imap-solar-data-test.thenamesrock.workers.dev/rtsw/merged-24h"
+KP_FORECAST_URL = (
+    "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json"
+)
 
 DEFAULT_SCAN_INTERVAL = timedelta(seconds=60)
 FORECAST_SCAN_MULTIPLIER = 2  # composite score polled half as often
@@ -31,6 +34,8 @@ MODE_PIN = "pin"
 
 # Frontend card
 CARD_FILENAME = "spot-the-aurora-card.js"
+FORECAST_CARD_FILENAME = "spot-the-aurora-forecast-card.js"
 CARD_URL = f"/{DOMAIN}/{CARD_FILENAME}"
+FORECAST_CARD_URL = f"/{DOMAIN}/{FORECAST_CARD_FILENAME}"
 
 ATTRIBUTION = "Data from NOAA SWPC and NASA via Spot The Aurora"

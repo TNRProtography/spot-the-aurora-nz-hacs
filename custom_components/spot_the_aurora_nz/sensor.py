@@ -250,6 +250,13 @@ DATA_SENSORS: tuple[AuroraSensorDescription, ...] = (
         entity_registry_enabled_default=False,
     ),
     AuroraSensorDescription(
+        key="kp_forecast",
+        name="Kp forecast",
+        value_key="kp_max_72h",
+        icon="mdi:calendar-clock",
+        attrs_keys=("kp_forecast", "kp_now", "kp_threshold"),
+    ),
+    AuroraSensorDescription(
         key="geomagnetic_latitude",
         name="Geomagnetic latitude",
         value_key="geomagnetic_latitude",
@@ -326,7 +333,13 @@ class AuroraSensor(CoordinatorEntity[AuroraCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any] | None:
         if not self.coordinator.data or not self.entity_description.attrs_keys:
             return None
-        return {
+        out = {
             key: self.coordinator.data.get(key)
             for key in self.entity_description.attrs_keys
         }
+        # The forecast card reads these under shorter names
+        if "kp_forecast" in out:
+            out["forecast"] = out.pop("kp_forecast")
+        if "kp_threshold" in out:
+            out["threshold"] = out.pop("kp_threshold")
+        return out

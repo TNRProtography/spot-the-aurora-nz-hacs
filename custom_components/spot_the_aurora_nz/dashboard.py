@@ -73,34 +73,57 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
         }
     ]
 
-    visibility_rows = rows(
+    # --- 3 day outlook ------------------------------------------------------
+    if e("kp_forecast"):
+        cards.append(
+            {
+                "type": "custom:spot-the-aurora-forecast-card",
+                "title": "3-day aurora forecast",
+                "subtitle": (
+                    "What the southern sky may look like over the next 72 hours"
+                ),
+            }
+        )
+
+    # --- Tonight at a glance ------------------------------------------------
+    tonight = rows(
         (vis_now, "Now"),
         (vis_15, "15 minutes"),
         (vis_30, "30 minutes"),
         (vis_60, "1 hour"),
         (vis_120, "2 hours"),
     )
-    status_rows = rows(
-        (level, "Substorm level"),
-        (trend, "Trend"),
-        (score, "Aurora score"),
-        (substorm, "Substorm score"),
-        (spot, "Spot The Aurora score"),
-    )
-    if visibility_rows or status_rows:
-        entities: list = list(visibility_rows)
-        if visibility_rows and status_rows:
-            entities.append({"type": "divider"})
-        entities.extend(status_rows)
+    if tonight:
         cards.append(
             {
                 "type": "entities",
-                "title": "Visibility forecast",
+                "title": "Tonight",
                 "show_header_toggle": False,
-                "entities": entities,
+                "entities": tonight,
             }
         )
 
+    # --- Activity -----------------------------------------------------------
+    activity = rows(
+        (level, "Substorm level"),
+        (trend, "Trend"),
+        (e("forecast_confidence"), "Confidence"),
+        (score, "Aurora score"),
+        (substorm, "Substorm score"),
+        (spot, "Spot The Aurora score"),
+        (e("kp_forecast"), "Peak Kp next 72h"),
+    )
+    if activity:
+        cards.append(
+            {
+                "type": "entities",
+                "title": "Activity",
+                "show_header_toggle": False,
+                "entities": activity,
+            }
+        )
+
+    # --- Solar wind ---------------------------------------------------------
     glance = rows(
         (bz, "Bz"),
         (bt, "Bt"),
@@ -128,12 +151,13 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
         cards.append(
             {
                 "type": "glance",
-                "title": "Coupling",
+                "title": "Coupling & sky",
                 "columns": 3,
                 "entities": coupling,
             }
         )
 
+    # --- History ------------------------------------------------------------
     if imf := ids(bt, bz, bz30, by):
         cards.append(
             {
@@ -154,6 +178,16 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
             }
         )
 
+    if pres := ids(pressure, newell):
+        cards.append(
+            {
+                "type": "history-graph",
+                "title": "Pressure & coupling",
+                "hours_to_show": 12,
+                "entities": pres,
+            }
+        )
+
     if scores := ids(score, substorm, spot):
         cards.append(
             {
@@ -164,11 +198,23 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
             }
         )
 
+    if tiers := ids(vis_now, vis_30, vis_120):
+        cards.append(
+            {
+                "type": "logbook",
+                "title": "Visibility changes",
+                "hours_to_show": 24,
+                "entities": tiers,
+            }
+        )
+
     cards.append(
         {
             "type": "markdown",
             "content": (
-                "Data from NOAA SWPC and NASA via Spot The Aurora. "
+                "Kp forecast from "
+                "[NOAA SWPC](https://www.swpc.noaa.gov/). "
+                "Solar wind and aurora data via Spot The Aurora. "
                 "Forecast algorithm by "
                 "[TNR Protography](https://www.tnrprotography.co.nz)."
             ),

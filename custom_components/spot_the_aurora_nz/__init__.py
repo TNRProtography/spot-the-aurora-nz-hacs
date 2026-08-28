@@ -16,6 +16,7 @@ from .const import (
     CARD_FILENAME,
     CARD_URL,
     CONF_CREATE_DASHBOARD,
+    FORECAST_CARD_URL,
     CONF_LOCATION_MODE,
     CONF_SCAN_INTERVAL,
     CONF_TRACKED_ENTITY,
@@ -55,7 +56,8 @@ async def _register_card(hass: HomeAssistant) -> None:
     try:
         from homeassistant.components.frontend import add_extra_js_url
 
-        add_extra_js_url(hass, f"{CARD_URL}?v=1.1.0")
+        add_extra_js_url(hass, f"{CARD_URL}?v=1.3.0")
+        add_extra_js_url(hass, f"{FORECAST_CARD_URL}?v=1.3.0")
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not auto-register the card: %s", err)
 

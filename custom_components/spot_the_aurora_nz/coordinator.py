@@ -18,6 +18,7 @@ from .const import (
     CONF_TRACKED_ENTITY,
     DOMAIN,
     FORECAST_URL,
+    KP_FORECAST_URL,
     MODE_ENTITY,
     MODE_HOME,
     MODE_PIN,
@@ -27,6 +28,7 @@ from .const import (
 from .oval import (
     compute_oval_boundary,
     geo_to_gmag_lat,
+    kp_threshold_for_latitude,
     location_adjusted_score,
     project_scores,
     visibility_line,
@@ -59,6 +61,7 @@ class AuroraCoordinator(DataUpdateCoordinator):
         self.location_source: str = "unknown"
         self._session = async_get_clientsession(hass)
         self._forecast_cache: dict[str, Any] = {}
+        self._kp_cache: list[dict[str, Any]] = []
         self._tick = 0
 
     def _resolve_location(self) -> None:
@@ -119,16 +122,25 @@ class AuroraCoordinator(DataUpdateCoordinator):
         self._resolve_location()
 
         tasks = [self._fetch(SUBSTORM_URL), self._fetch(RTSW_URL)]
+        # NOAA reissues the Kp forecast a few times a day, so poll it rarely.
+        want_kp = self._tick % 10 == 1 or not self._kp_cache
         # The composite forecast payload is large; poll it half as often.
         want_forecast = self._tick % 2 == 1 or not self._forecast_cache
         if want_forecast:
             tasks.append(self._fetch(FORECAST_URL))
+        if want_kp:
+            tasks.append(self._fetch(KP_FORECAST_URL))
 
         results = await asyncio.gather(*tasks)
         substorm = results[0]
         rtsw = results[1]
-        if want_forecast and results[2]:
-            self._forecast_cache = results[2]
+        idx = 2
+        if want_forecast:
+            if results[idx]:
+                self._forecast_cache = results[idx]
+            idx += 1
+        if want_kp and results[idx]:
+            self._kp_cache = _parse_kp_forecast(results[idx])
         forecast = self._forecast_cache
 
         if not substorm and not forecast:
@@ -234,13 +246,21 @@ class AuroraCoordinator(DataUpdateCoordinator):
         for slot in ("now", "15", "30", "60", "120"):
             data[f"tier_{slot}"] = visibility_tier(data[f"score_{slot}"])
 
+        data["kp_forecast"] = self._kp_cache
+        data["kp_now"] = self._kp_cache[0]["kp"] if self._kp_cache else None
+        data["kp_max_72h"] = (
+            max((e["kp"] for e in self._kp_cache), default=None)
+            if self._kp_cache
+            else None
+        )
+
         data["latitude"] = self.latitude
         data["longitude"] = self.longitude
         data["location_source"] = self.location_source
         if self.latitude is not None and self.longitude is not None:
-            data["geomagnetic_latitude"] = round(
-                geo_to_gmag_lat(self.latitude, self.longitude), 2
-            )
+            gmag = geo_to_gmag_lat(self.latitude, self.longitude)
+            data["geomagnetic_latitude"] = round(gmag, 2)
+            data["kp_threshold"] = round(kp_threshold_for_latitude(gmag), 1)
 
         return data
 
@@ -274,3 +294,29 @@ def _avg_by_30m(rtsw: Any) -> float | None:
     if not vals:
         return None
     return sum(vals) / len(vals)
+
+
+def _parse_kp_forecast(raw: Any) -> list[dict[str, Any]]:
+    """NOAA returns a header row then [time_tag, kp, observed, noaa_scale]."""
+    if not isinstance(raw, list) or len(raw) < 2:
+        return []
+
+    out: list[dict[str, Any]] = []
+    for row in raw[1:]:
+        if not isinstance(row, list) or len(row) < 3:
+            continue
+        try:
+            time_tag = str(row[0]).replace(" ", "T")
+            if not time_tag.endswith("Z"):
+                time_tag += "Z"
+            kp = float(row[1])
+        except (TypeError, ValueError):
+            continue
+        out.append(
+            {
+                "t": time_tag,
+                "kp": round(kp, 2),
+                "observed": str(row[2]).lower() if len(row) > 2 else "predicted",
+            }
+        )
+    return out

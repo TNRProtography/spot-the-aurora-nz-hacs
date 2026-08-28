@@ -161,12 +161,28 @@ class SpotTheAuroraCard extends HTMLElement {
     if (!this._hass) return null;
     const exact = this._config[configKey];
     if (exact && this._hass.states[exact]) return exact;
+
     // The integration uses has_entity_name, so IDs are prefixed with the
-    // device name. Find the entity by what it actually is instead.
-    const match = Object.keys(this._hass.states).find(
+    // device name. Match on what the entity actually is.
+    //
+    // Orphaned entities from an older YAML setup can share the same
+    // suffix, so prefer ones that belong to this integration and that
+    // are actually reporting a state.
+    const candidates = Object.keys(this._hass.states).filter(
       (id) => id.startsWith("sensor.") && id.endsWith(needle)
     );
-    return match || null;
+    if (candidates.length === 0) return null;
+
+    const usable = (id) => {
+      const st = this._hass.states[id]?.state;
+      return st !== "unavailable" && st !== "unknown";
+    };
+
+    return (
+      candidates.find((id) => id.includes("spot_the_aurora") && usable(id)) ??
+      candidates.find(usable) ??
+      candidates[0]
+    );
   }
 
   _build() {
@@ -389,9 +405,7 @@ class SpotTheAuroraCard extends HTMLElement {
         : key === "30" ? "visibility_30_minutes"
         : key === "60" ? "visibility_1_hour"
         : "visibility_2_hours";
-      const id = Object.keys(this._hass.states).find(
-        (e) => e.startsWith("sensor.") && e.endsWith(suffix)
-      );
+      const id = this._findEntity(`__slot_${key}`, suffix);
       const st = id ? this._hass.states[id] : null;
       if (!st) return "";
       const tier = st.state;
@@ -449,7 +463,7 @@ window.customCards.push({
 });
 
 console.info(
-  "%c SPOT-THE-AURORA-NZ %c v1.1.0 ",
+  "%c SPOT-THE-AURORA-NZ %c v1.2.0 ",
   "background:#0ea5e9;color:#fff",
   ""
 );
