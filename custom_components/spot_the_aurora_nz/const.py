@@ -23,6 +23,7 @@ CONF_TRACKED_ENTITY = "tracked_entity"
 CONF_LATITUDE = "latitude"
 CONF_LONGITUDE = "longitude"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_CREATE_DASHBOARD = "create_dashboard"
 
 MODE_HOME = "home"
 MODE_ENTITY = "entity"

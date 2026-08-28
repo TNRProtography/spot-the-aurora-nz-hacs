@@ -15,6 +15,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from .const import (
     CARD_FILENAME,
     CARD_URL,
+    CONF_CREATE_DASHBOARD,
     CONF_LOCATION_MODE,
     CONF_SCAN_INTERVAL,
     CONF_TRACKED_ENTITY,
@@ -22,6 +23,7 @@ from .const import (
     MODE_ENTITY,
 )
 from .coordinator import AuroraCoordinator
+from .dashboard import async_register_dashboard, async_remove_dashboard
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,25 +35,27 @@ async def _register_card(hass: HomeAssistant) -> None:
     if hass.data.get(f"{DOMAIN}_card_registered"):
         return
 
-    card_path = os.path.join(os.path.dirname(__file__), "www", CARD_FILENAME)
+    www_path = os.path.join(os.path.dirname(__file__), "www")
+    card_path = os.path.join(www_path, CARD_FILENAME)
     if not os.path.exists(card_path):
         _LOGGER.warning("Card file missing at %s", card_path)
         return
 
+    # Serve the whole folder so the logo and any future assets resolve too.
     try:
         from homeassistant.components.http import StaticPathConfig
 
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(CARD_URL, card_path, True)]
+            [StaticPathConfig(f"/{DOMAIN}", www_path, True)]
         )
     except ImportError:
         # Older cores without StaticPathConfig
-        hass.http.register_static_path(CARD_URL, card_path, True)
+        hass.http.register_static_path(f"/{DOMAIN}", www_path, True)
 
     try:
         from homeassistant.components.frontend import add_extra_js_url
 
-        add_extra_js_url(hass, f"{CARD_URL}?v=1")
+        add_extra_js_url(hass, f"{CARD_URL}?v=1.1.0")
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not auto-register the card: %s", err)
 
@@ -95,6 +99,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 async_track_state_change_event(hass, [tracked], _tracker_moved)
             )
 
+    # The dashboard is built from live entities, so register it only once
+    # they exist. Failure here never breaks the integration.
+    if opts.get(CONF_CREATE_DASHBOARD, True):
+        await async_register_dashboard(hass)
+
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
@@ -109,4 +118,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         hass.data[DOMAIN].pop(entry.entry_id, None)
+        await async_remove_dashboard(hass)
     return unloaded

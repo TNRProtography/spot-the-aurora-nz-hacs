@@ -35,6 +35,12 @@ density, dynamic pressure, Newell coupling (plus 30 and 60-minute averages),
 southward minutes, hemispheric power, substorm score, level, trend,
 confidence, moon illumination and L1 propagation delay.
 
+**A ready-made dashboard**
+
+An **Aurora** item appears in your sidebar with the map, the visibility
+forecast, solar wind readings and history graphs already laid out. Nothing to
+configure. Turn it off during setup if you'd rather build your own.
+
 **Map card**
 
 Registered automatically. Add it from the card picker as **Spot The Aurora
@@ -45,7 +51,25 @@ type: custom:spot-the-aurora-card
 ```
 
 It draws the oval band, its equatorward and poleward edges, the visibility
-view line and a marker at your location.
+view line and a marker at your location, with a five-slot forecast strip
+underneath and a line telling you how far the view line sits from you.
+
+Card options, all optional:
+
+| Option | Default | Notes |
+|---|---|---|
+| `title` | `Spot The Aurora` | Card heading |
+| `basemap` | `osm` | `osm`, `terrain`, `satellite` or `none` |
+| `dark` | `true` | Dims and desaturates the basemap |
+| `show_logo` | `true` | Logo in the header |
+| `show_forecast` | `true` | The five-slot strip under the map |
+| `height` | `420px` | Map height |
+| `zoom` | `4` | Initial zoom, before auto-fit |
+| `entity` | auto | Override the aurora score sensor |
+| `visibility_entity` | auto | Override the visibility sensor |
+
+All basemaps are keyless. CARTO is deliberately not offered — it now
+watermarks unkeyed requests.
 
 ## Installation
 
@@ -77,7 +101,8 @@ location rather than losing the forecast.
 **Pick a spot on the map** — drag a marker to your usual viewing spot. Handy
 if you always shoot from somewhere other than home.
 
-You can also set the update interval (30–900 seconds, default 60).
+You can also set the update interval (30–900 seconds, default 60) and choose
+whether to create the Aurora dashboard in your sidebar.
 
 Change any of it later via **Configure** on the integration — same three
 options.

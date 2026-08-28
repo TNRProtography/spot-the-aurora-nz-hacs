@@ -11,6 +11,32 @@
 
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LOGO_URL = "/spot_the_aurora_nz/logo.png";
+
+// Basemaps that need no API key. CARTO now watermarks unkeyed requests,
+// so it is deliberately not offered here.
+const BASEMAPS = {
+  osm: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 12,
+    dimmable: true,
+  },
+  terrain: {
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenTopoMap, &copy; OpenStreetMap contributors",
+    maxZoom: 12,
+    dimmable: true,
+  },
+  satellite: {
+    url:
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "&copy; Esri, Maxar, Earthstar Geographics",
+    maxZoom: 12,
+    dimmable: false,
+  },
+  none: null,
+};
 
 const POLE_LAT_RAD = (80.65 * Math.PI) / 180;
 const POLE_LON_RAD = (-72.68 * Math.PI) / 180;
@@ -66,6 +92,27 @@ function ovalColour(score) {
   return { line: "#38bdf8", fill: "#38bdf8", fillOpacity: 0.08 };
 }
 
+const TIER_COLOUR = {
+  Eye: "#f59e0b",
+  Phone: "#a3e635",
+  Camera: "#34d399",
+  Nothing: "#64748b",
+};
+
+const SLOTS = [
+  { key: "now", label: "Now" },
+  { key: "15", label: "15 min" },
+  { key: "30", label: "30 min" },
+  { key: "60", label: "1 hr" },
+  { key: "120", label: "2 hr" },
+];
+
+function fireMoreInfo(el, entityId) {
+  const ev = new Event("hass-more-info", { bubbles: true, composed: true });
+  ev.detail = { entityId };
+  el.dispatchEvent(ev);
+}
+
 let leafletPromise = null;
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
@@ -87,12 +134,15 @@ class SpotTheAuroraCard extends HTMLElement {
 
   setConfig(config) {
     this._config = {
-      title: "Aurora Oval",
-      entity: "sensor.aurora_score",
-      visibility_entity: "sensor.visibility_now",
+      title: "Spot The Aurora",
+      entity: null,
+      visibility_entity: null,
+      basemap: "osm",
       zoom: 4,
       height: "420px",
       dark: true,
+      show_logo: true,
+      show_forecast: true,
       ...config,
     };
     this._build();
@@ -107,13 +157,14 @@ class SpotTheAuroraCard extends HTMLElement {
     return 8;
   }
 
-  _findEntity(suffix) {
+  _findEntity(configKey, needle) {
     if (!this._hass) return null;
-    const exact = this._config[suffix];
+    const exact = this._config[configKey];
     if (exact && this._hass.states[exact]) return exact;
-    // Fall back to searching by unique-id suffix so renamed entities still work
-    const match = Object.keys(this._hass.states).find((id) =>
-      id.startsWith("sensor.") && id.includes(suffix.replace("_entity", ""))
+    // The integration uses has_entity_name, so IDs are prefixed with the
+    // device name. Find the entity by what it actually is instead.
+    const match = Object.keys(this._hass.states).find(
+      (id) => id.startsWith("sensor.") && id.endsWith(needle)
     );
     return match || null;
   }
@@ -125,11 +176,35 @@ class SpotTheAuroraCard extends HTMLElement {
     const style = document.createElement("style");
     style.textContent = `
       ha-card { overflow: hidden; }
-      .head { padding: 12px 16px 4px; display:flex; justify-content:space-between; align-items:baseline; }
-      .title { font-size: 1.25rem; font-weight: 500; }
-      .badge { font-size: 0.9rem; font-weight: 500; }
-      #map { width: 100%; background: #101014; }
-      .legend { display:flex; gap:14px; flex-wrap:wrap; padding:8px 16px 12px; font-size:0.75rem; opacity:0.75; }
+      .head {
+        padding: 12px 16px 8px;
+        display: flex; align-items: center; gap: 12px;
+      }
+      .logo { width: 34px; height: 34px; border-radius: 8px; flex: none; }
+      .heading { flex: 1; min-width: 0; }
+      .title { font-size: 1.2rem; font-weight: 500; line-height: 1.2; }
+      .sub { font-size: 0.75rem; opacity: 0.6; margin-top: 2px; }
+      .badge {
+        font-size: 0.95rem; font-weight: 600; white-space: nowrap;
+        padding: 4px 10px; border-radius: 999px;
+        border: 1px solid currentColor;
+      }
+      #map { width: 100%; background: #0b0b10; }
+      .forecast {
+        display: grid; grid-template-columns: repeat(5, 1fr);
+        gap: 1px; background: var(--divider-color, #333);
+        border-top: 1px solid var(--divider-color, #333);
+      }
+      .slot {
+        background: var(--card-background-color, #1c1c1c);
+        padding: 8px 4px; text-align: center;
+        cursor: pointer; transition: background 0.15s;
+      }
+      .slot:hover { background: var(--secondary-background-color, #2a2a2a); }
+      .slot .when { font-size: 0.65rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.04em; }
+      .slot .tier { font-size: 0.8rem; font-weight: 600; margin-top: 3px; }
+      .slot .pct  { font-size: 0.65rem; opacity: 0.5; margin-top: 1px; }
+      .legend { display:flex; gap:14px; flex-wrap:wrap; padding:8px 16px 12px; font-size:0.72rem; opacity:0.7; }
       .key { display:flex; align-items:center; gap:6px; }
       .swatch { width:16px; height:0; border-top-width:2px; border-top-style:solid; }
       .err { padding: 16px; color: var(--error-color, #f87171); font-size: 0.85rem; }
@@ -142,10 +217,15 @@ class SpotTheAuroraCard extends HTMLElement {
     const card = document.createElement("ha-card");
     card.innerHTML = `
       <div class="head">
-        <span class="title"></span>
+        <img class="logo" src="${LOGO_URL}" alt="" hidden>
+        <div class="heading">
+          <div class="title"></div>
+          <div class="sub"></div>
+        </div>
         <span class="badge"></span>
       </div>
       <div id="map"></div>
+      <div class="forecast" hidden></div>
       <div class="legend">
         <span class="key"><span class="swatch" style="border-top-color:#38bdf8;border-top-style:dotted"></span>View line</span>
         <span class="key"><span class="swatch oval-key"></span>Oval edge</span>
@@ -158,6 +238,10 @@ class SpotTheAuroraCard extends HTMLElement {
     this._mapEl = card.querySelector("#map");
     this._mapEl.style.height = this._config.height;
     card.querySelector(".title").textContent = this._config.title;
+    if (this._config.show_logo) {
+      card.querySelector(".logo").hidden = false;
+    }
+    this._forecastEl = card.querySelector(".forecast");
 
     loadLeaflet()
       .then((L) => this._initMap(L))
@@ -181,14 +265,19 @@ class SpotTheAuroraCard extends HTMLElement {
       worldCopyJump: false,
     });
 
-    const tileUrl = this._config.dark
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+    const base = BASEMAPS[this._config.basemap] ?? BASEMAPS.osm;
+    if (base) {
+      const layer = L.tileLayer(base.url, {
+        attribution: base.attribution,
+        maxZoom: base.maxZoom,
+      }).addTo(this._map);
 
-    L.tileLayer(tileUrl, {
-      attribution: "&copy; OpenStreetMap, &copy; CARTO",
-      maxZoom: 10,
-    }).addTo(this._map);
+      // Dim and desaturate so the oval reads clearly on top
+      if (this._config.dark && base.dimmable) {
+        const c = layer.getContainer();
+        if (c) c.style.filter = "brightness(0.55) saturate(0.5) contrast(1.1)";
+      }
+    }
 
     L.circleMarker([lat, lon], {
       radius: 6,
@@ -208,10 +297,10 @@ class SpotTheAuroraCard extends HTMLElement {
   _update() {
     if (!this._map || !this._hass) return;
 
-    const id = this._findEntity("entity") || this._config.entity;
+    const id = this._findEntity("entity", "aurora_score");
     const st = this._hass.states[id];
     if (!st) {
-      this._root.querySelector(".badge").textContent = "No data";
+      this._root.querySelector(".badge").textContent = "Sensor not found";
       return;
     }
 
@@ -260,16 +349,92 @@ class SpotTheAuroraCard extends HTMLElement {
       .addTo(this._layers)
       .bindPopup("Visibility view line");
 
-    const visId = this._config.visibility_entity;
+    const visId = this._findEntity("visibility_entity", "visibility_now");
     const vis = visId ? this._hass.states[visId]?.state : null;
     const badge = this._root.querySelector(".badge");
-    badge.textContent = vis
-      ? `${vis} - ${score.toFixed(0)}%`
-      : `${score.toFixed(0)}%`;
-    badge.style.color = line;
+    badge.textContent = vis ?? `${score.toFixed(0)}%`;
+    badge.style.color = vis ? TIER_COLOUR[vis] ?? line : line;
 
     const key = this._root.querySelector(".oval-key");
     if (key) key.style.borderTopColor = line;
+
+    // Subheading: where the forecast is being calculated for
+    const sub = this._root.querySelector(".sub");
+    if (sub) {
+      const src = a.location_source;
+      const gmag = a.geomagnetic_latitude;
+      if (a.is_daylight) {
+        sub.textContent = "Daylight - nothing visible until dark";
+      } else if (gmag != null) {
+        const gap = (gmag - viewLine).toFixed(1);
+        sub.textContent =
+          gap <= 0
+            ? `You are inside the view line by ${Math.abs(gap)} deg`
+            : `View line is ${gap} deg south of you`;
+      } else if (src) {
+        sub.textContent = `Location: ${src}`;
+      }
+    }
+
+    this._renderForecast();
+    this._fitToOval(viewLine);
+  }
+
+  _renderForecast() {
+    if (!this._config.show_forecast || !this._forecastEl) return;
+
+    const cells = SLOTS.map(({ key, label }) => {
+      const suffix = key === "now" ? "visibility_now"
+        : key === "15" ? "visibility_15_minutes"
+        : key === "30" ? "visibility_30_minutes"
+        : key === "60" ? "visibility_1_hour"
+        : "visibility_2_hours";
+      const id = Object.keys(this._hass.states).find(
+        (e) => e.startsWith("sensor.") && e.endsWith(suffix)
+      );
+      const st = id ? this._hass.states[id] : null;
+      if (!st) return "";
+      const tier = st.state;
+      const pct = st.attributes?.[`score_${key}`];
+      const colour = TIER_COLOUR[tier] ?? "#64748b";
+      return `
+        <div class="slot" data-entity="${id}">
+          <div class="when">${label}</div>
+          <div class="tier" style="color:${colour}">${tier}</div>
+          <div class="pct">${pct != null ? Math.round(pct) + "%" : ""}</div>
+        </div>`;
+    }).join("");
+
+    if (!cells.trim()) return;
+    this._forecastEl.innerHTML = cells;
+    this._forecastEl.hidden = false;
+
+    this._forecastEl.querySelectorAll(".slot").forEach((el) => {
+      el.onclick = () => fireMoreInfo(this, el.dataset.entity);
+    });
+  }
+
+  _fitToOval(viewLine) {
+    // Frame the user and the view line together, so the card is useful
+    // whether the oval is far south or pushing overhead. Only auto-fits
+    // once, so it never fights the user panning around.
+    if (this._fitted || !this._map) return;
+    const lat = this._hass?.config?.latitude;
+    const lon = this._hass?.config?.longitude;
+    if (lat == null || lon == null) return;
+
+    const viewGeoLat = gmagToGeoLat(viewLine, lon);
+    const south = Math.min(lat, viewGeoLat) - 4;
+    const north = Math.max(lat, viewGeoLat) + 3;
+    try {
+      this._map.fitBounds(
+        [[south, lon - 14], [north, lon + 14]],
+        { padding: [10, 10] }
+      );
+      this._fitted = true;
+    } catch (e) {
+      /* leave the default view */
+    }
   }
 }
 
@@ -284,7 +449,7 @@ window.customCards.push({
 });
 
 console.info(
-  "%c SPOT-THE-AURORA-NZ %c v1.0.0 ",
+  "%c SPOT-THE-AURORA-NZ %c v1.1.0 ",
   "background:#0ea5e9;color:#fff",
   ""
 );

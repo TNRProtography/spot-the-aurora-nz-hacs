@@ -14,7 +14,8 @@
         "title": "Use your Home Assistant location",
         "description": "The forecast will use your configured home location: {latitude}, {longitude}.",
         "data": {
-          "scan_interval": "Update interval"
+          "scan_interval": "Update interval",
+          "create_dashboard": "Create an Aurora dashboard in the sidebar"
         }
       },
       "entity": {
@@ -22,7 +23,8 @@
         "description": "Pick a device tracker, person or zone. The forecast updates whenever it moves, so it follows you out to a dark sky site.",
         "data": {
           "tracked_entity": "Device, person or zone",
-          "scan_interval": "Update interval"
+          "scan_interval": "Update interval",
+          "create_dashboard": "Create an Aurora dashboard in the sidebar"
         }
       },
       "pin": {
@@ -30,7 +32,8 @@
         "description": "Drag the marker to your viewing location. Handy if you always shoot from somewhere other than home.",
         "data": {
           "location": "Viewing location",
-          "scan_interval": "Update interval"
+          "scan_interval": "Update interval",
+          "create_dashboard": "Create an Aurora dashboard in the sidebar"
         }
       }
     },
@@ -56,7 +59,8 @@
         "title": "Use your Home Assistant location",
         "description": "The forecast will use your configured home location: {latitude}, {longitude}.",
         "data": {
-          "scan_interval": "Update interval"
+          "scan_interval": "Update interval",
+          "create_dashboard": "Create an Aurora dashboard in the sidebar"
         }
       },
       "entity": {
@@ -64,7 +68,8 @@
         "description": "Pick a device tracker, person or zone. The forecast updates whenever it moves.",
         "data": {
           "tracked_entity": "Device, person or zone",
-          "scan_interval": "Update interval"
+          "scan_interval": "Update interval",
+          "create_dashboard": "Create an Aurora dashboard in the sidebar"
         }
       },
       "pin": {
@@ -72,7 +77,8 @@
         "description": "Drag the marker to your viewing location.",
         "data": {
           "location": "Viewing location",
-          "scan_interval": "Update interval"
+          "scan_interval": "Update interval",
+          "create_dashboard": "Create an Aurora dashboard in the sidebar"
         }
       }
     },

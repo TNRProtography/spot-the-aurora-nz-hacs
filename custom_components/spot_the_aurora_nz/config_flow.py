@@ -15,6 +15,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_CREATE_DASHBOARD,
     CONF_LOCATION,
     CONF_LOCATION_MODE,
     CONF_SCAN_INTERVAL,
@@ -25,6 +26,8 @@ from .const import (
     MODE_PIN,
     NAME,
 )
+
+DASHBOARD_SELECTOR = selector.BooleanSelector()
 
 SCAN_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(
@@ -50,6 +53,10 @@ def _pin_schema(defaults: dict[str, Any], lat: float, lon: float) -> vol.Schema:
             vol.Optional(
                 CONF_SCAN_INTERVAL, default=defaults.get(CONF_SCAN_INTERVAL, 60)
             ): SCAN_SELECTOR,
+            vol.Optional(
+                CONF_CREATE_DASHBOARD,
+                default=defaults.get(CONF_CREATE_DASHBOARD, True),
+            ): DASHBOARD_SELECTOR,
         }
     )
 
@@ -64,6 +71,11 @@ def _entity_schema(defaults: dict[str, Any]) -> vol.Schema:
     schema[
         vol.Optional(CONF_SCAN_INTERVAL, default=defaults.get(CONF_SCAN_INTERVAL, 60))
     ] = SCAN_SELECTOR
+    schema[
+        vol.Optional(
+            CONF_CREATE_DASHBOARD, default=defaults.get(CONF_CREATE_DASHBOARD, True)
+        )
+    ] = DASHBOARD_SELECTOR
     return vol.Schema(schema)
 
 
@@ -73,6 +85,10 @@ def _home_schema(defaults: dict[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_SCAN_INTERVAL, default=defaults.get(CONF_SCAN_INTERVAL, 60)
             ): SCAN_SELECTOR,
+            vol.Optional(
+                CONF_CREATE_DASHBOARD,
+                default=defaults.get(CONF_CREATE_DASHBOARD, True),
+            ): DASHBOARD_SELECTOR,
         }
     )
 
