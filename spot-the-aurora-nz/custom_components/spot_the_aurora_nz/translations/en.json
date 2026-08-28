@@ -1,0 +1,83 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Where should the forecast be calculated for?",
+        "description": "The aurora oval is a ring around the geomagnetic pole, so what you can see depends on where you are. Christchurch and Auckland get very different answers on the same night.",
+        "menu_options": {
+          "home": "Use my Home Assistant location",
+          "entity": "Follow a device or person",
+          "pin": "Pick a spot on the map"
+        }
+      },
+      "home": {
+        "title": "Use your Home Assistant location",
+        "description": "The forecast will use your configured home location: {latitude}, {longitude}.",
+        "data": {
+          "scan_interval": "Update interval"
+        }
+      },
+      "entity": {
+        "title": "Follow a device or person",
+        "description": "Pick a device tracker, person or zone. The forecast updates whenever it moves, so it follows you out to a dark sky site.",
+        "data": {
+          "tracked_entity": "Device, person or zone",
+          "scan_interval": "Update interval"
+        }
+      },
+      "pin": {
+        "title": "Pick a spot on the map",
+        "description": "Drag the marker to your viewing location. Handy if you always shoot from somewhere other than home.",
+        "data": {
+          "location": "Viewing location",
+          "scan_interval": "Update interval"
+        }
+      }
+    },
+    "error": {
+      "no_location": "That entity doesn't report a latitude and longitude. Pick a device tracker, person or zone that has GPS coordinates."
+    },
+    "abort": {
+      "already_configured": "Spot The Aurora NZ is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Change your location",
+        "description": "Choose how the forecast should work out where you are.",
+        "menu_options": {
+          "home": "Use my Home Assistant location",
+          "entity": "Follow a device or person",
+          "pin": "Pick a spot on the map"
+        }
+      },
+      "home": {
+        "title": "Use your Home Assistant location",
+        "description": "The forecast will use your configured home location: {latitude}, {longitude}.",
+        "data": {
+          "scan_interval": "Update interval"
+        }
+      },
+      "entity": {
+        "title": "Follow a device or person",
+        "description": "Pick a device tracker, person or zone. The forecast updates whenever it moves.",
+        "data": {
+          "tracked_entity": "Device, person or zone",
+          "scan_interval": "Update interval"
+        }
+      },
+      "pin": {
+        "title": "Pick a spot on the map",
+        "description": "Drag the marker to your viewing location.",
+        "data": {
+          "location": "Viewing location",
+          "scan_interval": "Update interval"
+        }
+      }
+    },
+    "error": {
+      "no_location": "That entity doesn't report a latitude and longitude. Pick a device tracker, person or zone that has GPS coordinates."
+    }
+  }
+}

@@ -1,0 +1,112 @@
+# Dashboard → Edit → Add Card → Manual → paste this whole thing.
+# Requires the custom:aurora-oval-card resource to be registered first.
+
+type: vertical-stack
+cards:
+  # ── Map with oval + view line ───────────────────────────────────────────────
+  - type: custom:aurora-oval-card
+    title: Aurora Oval
+    height: 420px
+    zoom: 4
+    dark: true
+    score_entity: sensor.substorm_score
+    newell_30m_entity: sensor.solar_wind_newell_30m_average
+    newell_60m_entity: sensor.solar_wind_newell_60m_average
+    pressure_entity: sensor.solar_wind_pressure_30m_average
+    bz_entity: sensor.solar_wind_bz
+    visibility_entity: sensor.aurora_visibility_now
+
+  # ── Visibility forecast ─────────────────────────────────────────────────────
+  - type: entities
+    title: Aurora Visibility
+    show_header_toggle: false
+    entities:
+      - entity: sensor.aurora_visibility_now
+        name: Now
+        secondary_info: last-changed
+      - entity: sensor.aurora_visibility_15_minutes
+        name: 15 minutes
+      - entity: sensor.aurora_visibility_30_minutes
+        name: 30 minutes
+      - entity: sensor.aurora_visibility_2_hours
+        name: 2 hours
+      - type: divider
+      - entity: sensor.substorm_level
+        name: Substorm level
+      - entity: sensor.substorm_trend
+        name: Trend
+      - entity: sensor.substorm_confidence
+        name: Confidence
+      - entity: sensor.substorm_score
+        name: Substorm score
+      - entity: sensor.aurora_spot_score
+        name: Spot The Aurora score
+
+  # ── Current conditions at a glance ──────────────────────────────────────────
+  - type: glance
+    title: Solar Wind
+    columns: 3
+    entities:
+      - entity: sensor.solar_wind_bz
+        name: Bz
+      - entity: sensor.solar_wind_bt
+        name: Bt
+      - entity: sensor.solar_wind_speed
+        name: Speed
+      - entity: sensor.solar_wind_density
+        name: Density
+      - entity: sensor.solar_wind_pressure
+        name: Pressure
+      - entity: sensor.aurora_hemispheric_power
+        name: Hemi Power
+
+  - type: glance
+    title: Coupling
+    columns: 3
+    entities:
+      - entity: sensor.solar_wind_newell_coupling
+        name: Newell
+      - entity: sensor.solar_wind_southward_minutes_30m
+        name: Southward 30m
+      - entity: sensor.l1_propagation_delay
+        name: L1 Delay
+
+  # ── IMF: Bt and Bz together ─────────────────────────────────────────────────
+  - type: history-graph
+    title: IMF — Bt & Bz (nT)
+    hours_to_show: 12
+    refresh_interval: 60
+    entities:
+      - entity: sensor.solar_wind_bt
+        name: Bt
+      - entity: sensor.solar_wind_bz
+        name: Bz
+      - entity: sensor.solar_wind_bz_30m_average
+        name: Bz 30m avg
+
+  # ── Plasma: speed and density ───────────────────────────────────────────────
+  - type: history-graph
+    title: Solar Wind — Speed & Density
+    hours_to_show: 12
+    refresh_interval: 60
+    entities:
+      - entity: sensor.solar_wind_speed
+        name: Speed
+      - entity: sensor.solar_wind_density
+        name: Density
+
+  # ── Scores over time ────────────────────────────────────────────────────────
+  - type: history-graph
+    title: Activity Scores
+    hours_to_show: 24
+    refresh_interval: 60
+    entities:
+      - entity: sensor.substorm_score
+        name: Substorm
+      - entity: sensor.aurora_spot_score
+        name: Spot The Aurora
+
+  - type: markdown
+    content: >
+      Data: NOAA SWPC / RTSW via Spot The Aurora. Forecast algorithm by
+      [TNR Protography](https://www.tnrprotography.co.nz).
