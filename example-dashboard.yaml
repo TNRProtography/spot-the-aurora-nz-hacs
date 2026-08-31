@@ -71,6 +71,90 @@ cards:
       - entity: sensor.l1_propagation_delay
         name: L1 Delay
 
+  # ── X-ray flux & proton flux (SOLAR-1 / ACE / IMAP) ─────────────────────────
+  - type: glance
+    title: X-ray & proton flux
+    columns: 3
+    entities:
+      - entity: sensor.x_ray_flux_long_band
+        name: X-ray (long)
+      - entity: sensor.proton_flux_solar_1
+        name: Protons SOLAR-1
+      - entity: sensor.proton_flux_ace
+        name: Protons ACE
+      - entity: sensor.proton_flux_imap
+        name: Protons IMAP
+      - entity: sensor.cme_count
+        name: CMEs
+      - entity: sensor.solar_flare_count
+        name: Flares
+
+  # ── Map with every aurora reporting on it ───────────────────────────────────
+  # Reportings are geo_location entities from this integration; the map card
+  # picks them up automatically via geo_location_sources. The list resets
+  # daily at midday NZ time, same as the live site.
+  - type: map
+    title: Reportings map
+    geo_location_sources:
+      - spot_the_aurora_nz
+    default_zoom: 5
+
+  # ── Reportings, CMEs and flares as plain-text lists ─────────────────────────
+  - type: markdown
+    title: Aurora reportings today
+    content: >
+      {% set sightings = state_attr('sensor.aurora_sightings_today', 'sightings') or [] %}
+      {% if sightings %}
+      {% for s in sightings[:15] %}
+      **{{ s.emoji }} {{ s.name }}** — {{ s.status_label }}{% if s.distance_km is not none %} · {{ s.distance_km }} km away{% endif %}
+
+      {% endfor %}
+      {% else %}
+      No reportings since midday.
+      {% endif %}
+
+  - type: markdown
+    title: Recent CMEs
+    content: >
+      {% set cmes = state_attr('sensor.cme_count', 'cmes') or [] %}
+      {% for c in cmes[:10] %}
+      **{{ c.speed_km_s | round(0) }} km/s**{% if c.is_earth_directed %} · 🌍 Earth-directed{% endif %}
+
+      {% endfor %}
+
+  - type: markdown
+    title: Recent solar flares
+    content: >
+      {% set flares = state_attr('sensor.solar_flare_count', 'flares') or [] %}
+      {% for f in flares[:10] %}
+      **{{ f.class_type or '?' }}** — {{ f.source_location or 'unknown region' }}
+
+      {% endfor %}
+
+  # ── Full 3D CME & coronal hole visualization (the live web app) ─────────────
+  # This dashboard only has the data - the real interactive 3D model lives on
+  # the site, and it isn't built to be embedded, so link to it rather than
+  # trying to frame it.
+  - type: markdown
+    content: >
+      ### 🌌 Full 3D CME & coronal hole visualization
+
+      **[CME Visualization](https://www.spottheaurora.co.nz/cme-visualization)**
+      · **[Solar Activity Dashboard](https://www.spottheaurora.co.nz/solar-dashboard)**
+
+  # ── Solar imagery, incl. raw coronal hole image ─────────────────────────────
+  - type: grid
+    title: Solar imagery
+    columns: 2
+    square: false
+    cards:
+      - type: picture
+        image: https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg
+      - type: picture
+        image: https://soho.nascom.nasa.gov/data/realtime/c3diff/1024/latest.jpg
+      - type: picture
+        image: https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png
+
   # ── IMF: Bt and Bz together ─────────────────────────────────────────────────
   - type: history-graph
     title: IMF — Bt & Bz (nT)

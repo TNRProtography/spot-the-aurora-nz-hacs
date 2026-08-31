@@ -276,6 +276,90 @@ DATA_SENSORS: tuple[AuroraSensorDescription, ...] = (
     ),
 )
 
+SPACE_WEATHER_SENSORS: tuple[AuroraSensorDescription, ...] = (
+    AuroraSensorDescription(
+        key="cme_count",
+        name="CME count",
+        value_key="cme_count",
+        icon="mdi:weather-sunny-alert",
+        attrs_keys=("cmes", "latest_cme_speed"),
+    ),
+    AuroraSensorDescription(
+        key="flare_count",
+        name="Solar flare count",
+        value_key="flare_count",
+        icon="mdi:white-balance-sunny",
+        attrs_keys=("flares", "latest_flare_class"),
+    ),
+    AuroraSensorDescription(
+        key="xray_flux_long",
+        name="X-ray flux (long band)",
+        value_key="xray_flux_long",
+        native_unit_of_measurement="W/m²",
+        state_class=MEASURE,
+        icon="mdi:flash-alert",
+        attrs_keys=("xray_class", "xray_flux_short", "xray_time"),
+    ),
+    AuroraSensorDescription(
+        key="proton_flux_solar1",
+        name="Proton flux (SOLAR-1)",
+        value_key="proton_solar1",
+        native_unit_of_measurement="p/cm²·s·sr·MeV",
+        state_class=MEASURE,
+        icon="mdi:atom",
+        attrs_keys=("proton_solar1_channels", "proton_solar1_time"),
+        entity_registry_enabled_default=False,
+    ),
+    AuroraSensorDescription(
+        key="proton_flux_ace",
+        name="Proton flux (ACE)",
+        value_key="proton_ace",
+        native_unit_of_measurement="p/cm²·s·sr·MeV",
+        state_class=MEASURE,
+        icon="mdi:atom",
+        attrs_keys=("proton_ace_channels", "proton_ace_time"),
+        entity_registry_enabled_default=False,
+    ),
+    AuroraSensorDescription(
+        key="proton_flux_imap",
+        name="Proton flux (IMAP)",
+        value_key="proton_imap",
+        native_unit_of_measurement="p/cm²·s·sr·MeV",
+        state_class=MEASURE,
+        icon="mdi:atom",
+        attrs_keys=("proton_imap_channels", "proton_imap_time"),
+        entity_registry_enabled_default=False,
+    ),
+)
+
+SIGHTING_SENSORS: tuple[AuroraSensorDescription, ...] = (
+    AuroraSensorDescription(
+        key="sightings_count",
+        name="Aurora sightings today",
+        value_key="sightings_count",
+        icon="mdi:account-eye",
+        attrs_keys=("sightings", "sightings_visible_count"),
+    ),
+    AuroraSensorDescription(
+        key="closest_sighting_distance",
+        name="Closest sighting distance",
+        value_key="closest_sighting_distance_km",
+        native_unit_of_measurement="km",
+        state_class=MEASURE,
+        icon="mdi:map-marker-distance",
+        attrs_keys=("closest_sighting",),
+    ),
+    AuroraSensorDescription(
+        key="closest_sighting_latitude_delta",
+        name="Closest sighting latitude difference",
+        value_key="closest_sighting_latitude_delta_deg",
+        native_unit_of_measurement="°",
+        state_class=MEASURE,
+        icon="mdi:latitude",
+        attrs_keys=("closest_sighting", "closest_sighting_latitude_delta_km"),
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -286,7 +370,10 @@ async def async_setup_entry(
     coordinator: AuroraCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
         AuroraSensor(coordinator, entry, desc)
-        for desc in VISIBILITY_SENSORS + DATA_SENSORS
+        for desc in VISIBILITY_SENSORS
+        + DATA_SENSORS
+        + SPACE_WEATHER_SENSORS
+        + SIGHTING_SENSORS
     ]
     async_add_entities(entities)
 

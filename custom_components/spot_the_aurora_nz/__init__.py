@@ -28,7 +28,7 @@ from .dashboard import async_register_dashboard, async_remove_dashboard
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.GEO_LOCATION]
 
 
 async def _register_card(hass: HomeAssistant) -> None:
