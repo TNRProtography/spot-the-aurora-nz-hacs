@@ -44,8 +44,11 @@ confidence, moon illumination and L1 propagation delay.
 `sensor.cme_count` and `sensor.solar_flare_count` track NASA DONKI's live
 catalog. Each carries the full recent list as an attribute (`cmes` /
 `flares`) - speed, source location, whether it's Earth-directed, predicted
-shock arrival time, flare class and peak time - so you can template on it,
-or just read the dashboard's CME and flare list cards.
+shock arrival time, flare class, peak time, and a `link` straight to that
+event's own NASA DONKI detail page. The dashboard's CME and flare list
+cards use that link, so every entry is clickable through to the same page
+the web app itself opens when you click a CME or flare in its own list -
+not just a summary, the real per-event write-up.
 
 **X-ray flux and proton flux**
 
@@ -60,11 +63,16 @@ spacecraft - `sensor.proton_flux_solar_1`, `sensor.proton_flux_ace` and
 Every sighting the community submits shows up as a `geo_location` entity -
 which means it's automatically on any Lovelace **Map** card with
 `geo_location_sources: [spot_the_aurora_nz]` (the dashboard's map is already
-set up this way), each with a distance and a name you can hover or tap.
-`sensor.aurora_sightings_today` carries the full list as an attribute for a
-plain-text view. Like the live site, this resets every day at midday NZ
-time - reportings are for "tonight", so once local noon passes the list (and
-the map) empties out and starts collecting again.
+set up this way), each with a distance and a name you can hover or tap, plus
+what was actually reported (status - naked eye, phone, DSLR, cloudy, or
+"nothing" for a given category) as an attribute on the marker.
+`sensor.aurora_sightings_today` carries the same list as an attribute -
+name, status, distance, and when it was reported - for the dashboard's
+plain-text reportings card, which also links through to the live map (there
+isn't a per-sighting detail page on the app to link to individual reports,
+so that's one link for the whole card). Like the live site, this resets
+every day at midday NZ time - reportings are for "tonight", so once local
+noon passes the list (and the map) empties out and starts collecting again.
 
 **Automating on how close a reporting is**
 
@@ -95,11 +103,21 @@ patches on it, generally near the poles, no processing required.
 
 **A ready-made dashboard**
 
-An **Aurora** item appears in your sidebar with the oval map, the 3-day
-forecast, the visibility forecast, solar wind readings, X-ray/proton flux,
-a reportings map, CME and flare lists, a link to the live 3D visualization,
-solar imagery and history graphs already laid out. Nothing to configure.
-Turn it off during setup if you'd rather build your own.
+A **Spot The Aurora** item appears in your sidebar (at `/spot-the-aurora`)
+with the oval map, the 3-day forecast, the visibility forecast, solar wind
+readings, X-ray/proton flux, a reportings map, CME and flare lists, a link
+to the live 3D visualization, solar imagery and history graphs already laid
+out. Nothing to configure. Turn it off during setup if you'd rather build
+your own.
+
+If it doesn't show up: something else is almost certainly already using
+that sidebar URL - most often a dashboard you made by hand that also
+happens to be called "Spot The Aurora" (or was, in earlier versions,
+"Aurora" - the old, more collision-prone URL). Rename or remove the
+conflicting dashboard, then **Settings → Devices & Services → Spot The
+Aurora NZ → ⋮ → Reload**. A registration failure now also raises a
+persistent notification in Home Assistant explaining the clash, instead of
+only logging it.
 
 **Map card**
 
@@ -176,7 +194,7 @@ location rather than losing the forecast.
 if you always shoot from somewhere other than home.
 
 You can also set the update interval (30–900 seconds, default 60) and choose
-whether to create the Aurora dashboard in your sidebar.
+whether to create the Spot The Aurora dashboard in your sidebar.
 
 Change any of it later via **Configure** on the integration — same three
 options.

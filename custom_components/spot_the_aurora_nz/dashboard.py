@@ -1,4 +1,4 @@
-"""A dedicated Aurora dashboard, registered as its own sidebar panel.
+"""A dedicated Spot The Aurora dashboard, registered as its own sidebar panel.
 
 Built from the entities this integration creates, so it works out of the box
 with no YAML from the user. Can be turned off in the integration options.
@@ -10,13 +10,23 @@ import logging
 
 from homeassistant.core import HomeAssistant
 
-from .const import CME_VISUALIZATION_URL, DOMAIN, SOLAR_DASHBOARD_URL, SUVI_195_URL
+from .const import (
+    CME_VISUALIZATION_URL,
+    DOMAIN,
+    REPORTINGS_MAP_URL,
+    SOLAR_DASHBOARD_URL,
+    SUVI_195_URL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-PANEL_URL = "aurora"
-PANEL_TITLE = "Aurora"
+# "aurora" collided with hand-made dashboards a lot of users already had
+# (commonly titled "Aurora" too, which HA slugs to the same URL) - use a
+# name specific enough that it won't clash with anything pre-existing.
+PANEL_URL = "spot-the-aurora"
+PANEL_TITLE = "Spot The Aurora"
 PANEL_ICON = "mdi:weather-night"
+NOTIFICATION_ID = f"{DOMAIN}_dashboard_failed"
 
 
 def _entity(hass: HomeAssistant, suffix: str) -> str | None:
@@ -198,6 +208,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
     )
 
     # --- Reportings list -------------------------------------------------------
+    # Sightings don't have individual detail pages on the app - the closest
+    # thing is the live reportings map, which is one link for the whole card
+    # rather than per-row (there's nothing per-row to link to).
     if sightings_count:
         cards.append(
             {
@@ -215,8 +228,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     "{{ as_timestamp(s.reported_at) | timestamp_custom('%-I:%M %p') }}\n\n"
                     "{% endfor %}"
                     "{% else %}"
-                    "No reportings since midday - be the first tonight!"
+                    "No reportings since midday - be the first tonight!\n\n"
                     "{% endif %}"
+                    f"[View the live map & report a sighting →]({REPORTINGS_MAP_URL})"
                 ),
             }
         )
@@ -237,6 +251,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
         )
 
     # --- CME list ---------------------------------------------------------------
+    # Each CME carries its own NASA DONKI detail-page link (the same page the
+    # app itself opens when you click a CME in its list) - use it so every
+    # entry here is clickable through to the real thing.
     if cme_count:
         cards.append(
             {
@@ -248,8 +265,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     + "', 'cmes') or [] %}"
                     "{% if cmes %}"
                     "{% for c in cmes[:10] %}"
-                    "**{{ as_timestamp(c.start_time) | timestamp_custom('%-d %b, %-I:%M %p') "
-                    "if c.start_time else 'Unknown time' }}** — "
+                    "{% set label = (as_timestamp(c.start_time) | timestamp_custom('%-d %b, %-I:%M %p')) "
+                    "if c.start_time else 'Unknown time' %}"
+                    "**{% if c.link %}[{{ label }}]({{ c.link }}){% else %}{{ label }}{% endif %}** — "
                     "{{ c.speed_km_s | round(0) }} km/s"
                     "{% if c.is_earth_directed %} · 🌍 Earth-directed{% endif %}"
                     "{% if c.predicted_arrival_time %} · arrival ~"
@@ -257,8 +275,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     "{% endif %}\n\n"
                     "{% endfor %}"
                     "{% else %}"
-                    "No recent CMEs from NASA DONKI."
+                    "No recent CMEs from NASA DONKI.\n\n"
                     "{% endif %}"
+                    f"[Open the full 3D visualization →]({CME_VISUALIZATION_URL})"
                 ),
             }
         )
@@ -275,14 +294,17 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     + "', 'flares') or [] %}"
                     "{% if flares %}"
                     "{% for f in flares[:10] %}"
-                    "**{{ f.class_type or '?' }}** — {{ f.source_location or 'unknown region' }}"
+                    "{% set label = f.class_type or '?' %}"
+                    "**{% if f.link %}[{{ label }}]({{ f.link }}){% else %}{{ label }}{% endif %}** — "
+                    "{{ f.source_location or 'unknown region' }}"
                     "{% if f.peak_time %} · peak "
                     "{{ as_timestamp(f.peak_time) | timestamp_custom('%-d %b, %-I:%M %p') }}"
                     "{% endif %}\n\n"
                     "{% endfor %}"
                     "{% else %}"
-                    "No recent flares from NASA DONKI."
+                    "No recent flares from NASA DONKI.\n\n"
                     "{% endif %}"
+                    f"[Open the full 3D visualization →]({CME_VISUALIZATION_URL})"
                 ),
             }
         )
@@ -418,7 +440,7 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
         "views": [
             {
                 "title": PANEL_TITLE,
-                "path": "aurora",
+                "path": PANEL_URL,
                 "icon": PANEL_ICON,
                 "cards": cards,
             }
@@ -427,7 +449,7 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
 
 
 async def async_register_dashboard(hass: HomeAssistant) -> None:
-    """Add the Aurora dashboard to the sidebar."""
+    """Add the Spot The Aurora dashboard to the sidebar."""
     if hass.data.get(f"{DOMAIN}_panel_registered"):
         return
 
@@ -448,13 +470,18 @@ async def async_register_dashboard(hass: HomeAssistant) -> None:
             update=True,
         )
         hass.data[f"{DOMAIN}_panel_registered"] = True
-        _LOGGER.info("Registered Aurora dashboard at /%s", PANEL_URL)
+        _LOGGER.info("Registered %s dashboard at /%s", PANEL_TITLE, PANEL_URL)
+        await _async_clear_dashboard_failed_notice(hass)
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning(
-            "Could not register the Aurora dashboard: %s. "
+            "Could not register the %s dashboard at /%s: %s. This usually "
+            "means another dashboard is already using that sidebar URL. "
             "You can still build one by hand - see example-dashboard.yaml",
+            PANEL_TITLE,
+            PANEL_URL,
             err,
         )
+        await _async_notify_dashboard_failed(hass, err)
 
 
 async def async_remove_dashboard(hass: HomeAssistant) -> None:
@@ -467,4 +494,37 @@ async def async_remove_dashboard(hass: HomeAssistant) -> None:
         frontend.async_remove_panel(hass, PANEL_URL)
     except Exception as err:  # noqa: BLE001
         _LOGGER.debug("Could not remove panel: %s", err)
+    await _async_clear_dashboard_failed_notice(hass)
+
+
+async def _async_notify_dashboard_failed(hass: HomeAssistant, err: Exception) -> None:
+    """Surface a registration failure in the UI, not just the log.
+
+    async_register_built_in_panel's exceptions land in a broad except
+    clause, so without this a failed registration is silent unless someone
+    happens to be reading the log - which is exactly how "the dashboard just
+    never showed up" reports tend to start.
+    """
+    from homeassistant.components import persistent_notification
+
+    persistent_notification.async_create(
+        hass,
+        (
+            f"Couldn't add the **{PANEL_TITLE}** dashboard to your sidebar at "
+            f"`/{PANEL_URL}` - most likely something else (often a "
+            "hand-created dashboard with a similar name) is already using "
+            "that URL. Rename or remove it, then reload the Spot The Aurora "
+            "NZ integration (Settings → Devices & Services → ⋮ "
+            "→ Reload) to try again.\n\n"
+            f"Details: `{err}`"
+        ),
+        title="Spot The Aurora NZ dashboard",
+        notification_id=NOTIFICATION_ID,
+    )
+
+
+async def _async_clear_dashboard_failed_notice(hass: HomeAssistant) -> None:
+    from homeassistant.components import persistent_notification
+
+    persistent_notification.async_dismiss(hass, NOTIFICATION_ID)
     hass.data.pop(f"{DOMAIN}_panel_registered", None)
