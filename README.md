@@ -153,12 +153,12 @@ watermarks unkeyed requests.
 
 ### HACS
 
-1. HACS → ⋮ (top right) → **Custom repositories**
-2. URL: `https://github.com/tnrprotography/spot-the-aurora-nz-hacs`, category **Integration**
-3. Find **Spot The Aurora NZ** in HACS and click **Download**
-4. Restart Home Assistant
-5. Settings → Devices & Services → **Add Integration** → search "Spot The Aurora NZ"
-6. Pick how it should know your location (see below) and finish the wizard
+1. HACS → **Integrations** → search **Spot The Aurora NZ** → **Download**
+2. Restart Home Assistant
+3. Settings → Devices & Services → **Add Integration** → search "Spot The Aurora NZ"
+4. Pick how it should know your location (see below) and finish the wizard
+
+It's listed in HACS directly - no need to add a custom repository first.
 
 No YAML and no dashboard resource to register by hand - the sensors, the
 map card and the sidebar dashboard all set themselves up.
