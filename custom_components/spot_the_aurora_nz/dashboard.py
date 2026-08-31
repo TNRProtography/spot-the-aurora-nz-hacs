@@ -289,9 +289,8 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
 
     # --- Full 3D CME & coronal hole visualization (the actual web app) ---------
     # The 3D propagation model and coronal hole detection aren't practical to
-    # rebuild as a Lovelace card, so link straight to the live pages - and try
-    # embedding the CME view. If the site doesn't allow framing, the iframe
-    # just shows blank; the links above it always work.
+    # rebuild as a Lovelace card, and the site isn't built to be framed - so
+    # link straight to the live pages instead of embedding them.
     cards.append(
         {
             "type": "markdown",
@@ -302,13 +301,6 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                 f"live app: **[CME Visualization]({CME_VISUALIZATION_URL})** · "
                 f"**[Solar Activity Dashboard]({SOLAR_DASHBOARD_URL})**"
             ),
-        }
-    )
-    cards.append(
-        {
-            "type": "iframe",
-            "url": CME_VISUALIZATION_URL,
-            "aspect_ratio": "75%",
         }
     )
 
