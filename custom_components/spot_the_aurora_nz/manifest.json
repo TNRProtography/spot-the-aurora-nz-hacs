@@ -1,11 +1,11 @@
 {
   "domain": "spot_the_aurora_nz",
   "name": "Spot The Aurora NZ",
-  "codeowners": [
-    "@TNRProtography"
-  ],
   "after_dependencies": [
     "lovelace"
+  ],
+  "codeowners": [
+    "@TNRProtography"
   ],
   "config_flow": true,
   "dependencies": [
