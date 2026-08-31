@@ -449,23 +449,63 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
 
 
 async def async_register_dashboard(hass: HomeAssistant) -> None:
-    """Add the Spot The Aurora dashboard to the sidebar."""
-    if hass.data.get(f"{DOMAIN}_panel_registered"):
-        return
+    """Add the Spot The Aurora dashboard to the sidebar.
 
+    Registering a sidebar panel with component_name="lovelace" only creates
+    the route and the sidebar entry - it does NOT make the "lovelace"
+    integration aware of a dashboard living at that URL. Lovelace's own
+    websocket handler for `lovelace/config` looks the dashboard up in
+    `hass.data[LOVELACE_DATA].dashboards[url_path]`, a dict that is normally
+    only populated by lovelace's own storage-dashboard collection or its
+    YAML-dashboards config - never by an external integration just calling
+    async_register_built_in_panel. Without an entry there, every request for
+    this dashboard's config comes back "config_not_found", and the frontend
+    falls back to showing a brand-new, empty, single-section dashboard.
+
+    So this creates a real `LovelaceStorage` object (the same class
+    lovelace's own storage dashboards use) and both saves our views into it
+    and drops it into that dashboards dict directly - the same end state
+    lovelace reaches when a dashboard is added through its own UI, just
+    reached without going through lovelace's storage-collection API (which
+    isn't exposed for other integrations to call into).
+    """
     try:
         from homeassistant.components import frontend
+        from homeassistant.components.lovelace import dashboard as ll_dashboard
+        from homeassistant.components.lovelace.const import (
+            CONF_ICON as LL_CONF_ICON,
+            CONF_REQUIRE_ADMIN,
+            CONF_SHOW_IN_SIDEBAR,
+            CONF_TITLE,
+            CONF_URL_PATH,
+            LOVELACE_DATA,
+        )
+        from homeassistant.components.lovelace.const import DOMAIN as LOVELACE_DOMAIN
+
+        lovelace_data = hass.data.get(LOVELACE_DATA)
+        if lovelace_data is None:
+            raise RuntimeError("lovelace integration is not set up")
+
+        item = {
+            "id": PANEL_URL,
+            CONF_URL_PATH: PANEL_URL,
+            CONF_TITLE: PANEL_TITLE,
+            LL_CONF_ICON: PANEL_ICON,
+            CONF_REQUIRE_ADMIN: False,
+            CONF_SHOW_IN_SIDEBAR: True,
+        }
+        storage = ll_dashboard.LovelaceStorage(hass, item)
+        views = build_dashboard_config(hass)["views"]
+        await storage.async_save({"views": views})
+        lovelace_data.dashboards[PANEL_URL] = storage
 
         frontend.async_register_built_in_panel(
             hass,
-            component_name="lovelace",
+            component_name=LOVELACE_DOMAIN,
             sidebar_title=PANEL_TITLE,
             sidebar_icon=PANEL_ICON,
             frontend_url_path=PANEL_URL,
-            config={
-                "mode": "storage",
-                "views": build_dashboard_config(hass)["views"],
-            },
+            config={"mode": "storage"},
             require_admin=False,
             update=True,
         )
@@ -490,10 +530,18 @@ async def async_remove_dashboard(hass: HomeAssistant) -> None:
         return
     try:
         from homeassistant.components import frontend
+        from homeassistant.components.lovelace.const import LOVELACE_DATA
 
         frontend.async_remove_panel(hass, PANEL_URL)
+
+        lovelace_data = hass.data.get(LOVELACE_DATA)
+        if lovelace_data is not None:
+            storage = lovelace_data.dashboards.pop(PANEL_URL, None)
+            if storage is not None:
+                await storage.async_delete()
     except Exception as err:  # noqa: BLE001
         _LOGGER.debug("Could not remove panel: %s", err)
+    hass.data.pop(f"{DOMAIN}_panel_registered", None)
     await _async_clear_dashboard_failed_notice(hass)
 
 
@@ -527,4 +575,3 @@ async def _async_clear_dashboard_failed_notice(hass: HomeAssistant) -> None:
     from homeassistant.components import persistent_notification
 
     persistent_notification.async_dismiss(hass, NOTIFICATION_ID)
-    hass.data.pop(f"{DOMAIN}_panel_registered", None)

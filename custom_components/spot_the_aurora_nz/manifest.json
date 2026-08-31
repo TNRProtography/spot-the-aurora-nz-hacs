@@ -1,6 +1,9 @@
 {
   "domain": "spot_the_aurora_nz",
   "name": "Spot The Aurora NZ",
+  "after_dependencies": [
+    "lovelace"
+  ],
   "codeowners": [
     "@TNRProtography"
   ],
@@ -13,5 +16,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/TNRProtography/spot-the-aurora-nz-hacs/issues",
   "requirements": [],
-  "version": "1.6.0"
+  "version": "1.6.1"
 }
