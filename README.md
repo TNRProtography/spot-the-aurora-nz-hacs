@@ -103,11 +103,21 @@ patches on it, generally near the poles, no processing required.
 
 **A ready-made dashboard**
 
-An **Aurora** item appears in your sidebar with the oval map, the 3-day
-forecast, the visibility forecast, solar wind readings, X-ray/proton flux,
-a reportings map, CME and flare lists, a link to the live 3D visualization,
-solar imagery and history graphs already laid out. Nothing to configure.
-Turn it off during setup if you'd rather build your own.
+A **Spot The Aurora** item appears in your sidebar (at `/spot-the-aurora`)
+with the oval map, the 3-day forecast, the visibility forecast, solar wind
+readings, X-ray/proton flux, a reportings map, CME and flare lists, a link
+to the live 3D visualization, solar imagery and history graphs already laid
+out. Nothing to configure. Turn it off during setup if you'd rather build
+your own.
+
+If it doesn't show up: something else is almost certainly already using
+that sidebar URL - most often a dashboard you made by hand that also
+happens to be called "Spot The Aurora" (or was, in earlier versions,
+"Aurora" - the old, more collision-prone URL). Rename or remove the
+conflicting dashboard, then **Settings → Devices & Services → Spot The
+Aurora NZ → ⋮ → Reload**. A registration failure now also raises a
+persistent notification in Home Assistant explaining the clash, instead of
+only logging it.
 
 **Map card**
 
@@ -184,7 +194,7 @@ location rather than losing the forecast.
 if you always shoot from somewhere other than home.
 
 You can also set the update interval (30–900 seconds, default 60) and choose
-whether to create the Aurora dashboard in your sidebar.
+whether to create the Spot The Aurora dashboard in your sidebar.
 
 Change any of it later via **Configure** on the integration — same three
 options.
