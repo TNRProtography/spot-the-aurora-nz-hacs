@@ -131,6 +131,34 @@ cards:
 
       {% endfor %}
 
+  # ── Full 3D CME & coronal hole visualization (the live web app) ─────────────
+  # This dashboard only has the data - the real interactive 3D model lives on
+  # the site. The iframe attempts to embed it; if spottheaurora.co.nz doesn't
+  # allow framing you'll just get a blank box, so the links above it are the
+  # reliable way in.
+  - type: markdown
+    content: >
+      ### 🌌 Full 3D CME & coronal hole visualization
+
+      **[CME Visualization](https://www.spottheaurora.co.nz/cme-visualization)**
+      · **[Solar Activity Dashboard](https://www.spottheaurora.co.nz/solar-dashboard)**
+  - type: iframe
+    url: https://www.spottheaurora.co.nz/cme-visualization
+    aspect_ratio: 75%
+
+  # ── Solar imagery, incl. raw coronal hole image ─────────────────────────────
+  - type: grid
+    title: Solar imagery
+    columns: 2
+    square: false
+    cards:
+      - type: picture
+        image: https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg
+      - type: picture
+        image: https://soho.nascom.nasa.gov/data/realtime/c3diff/1024/latest.jpg
+      - type: picture
+        image: https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png
+
   # ── IMF: Bt and Bz together ─────────────────────────────────────────────────
   - type: history-graph
     title: IMF — Bt & Bz (nT)

@@ -10,7 +10,7 @@ import logging
 
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import CME_VISUALIZATION_URL, DOMAIN, SOLAR_DASHBOARD_URL, SUVI_195_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -287,6 +287,31 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
             }
         )
 
+    # --- Full 3D CME & coronal hole visualization (the actual web app) ---------
+    # The 3D propagation model and coronal hole detection aren't practical to
+    # rebuild as a Lovelace card, so link straight to the live pages - and try
+    # embedding the CME view. If the site doesn't allow framing, the iframe
+    # just shows blank; the links above it always work.
+    cards.append(
+        {
+            "type": "markdown",
+            "content": (
+                "### \U0001f30c Full 3D CME & coronal hole visualization\n\n"
+                "This dashboard shows the *data*. For the real interactive 3D "
+                f"model - CME propagation, coronal holes and all - open the "
+                f"live app: **[CME Visualization]({CME_VISUALIZATION_URL})** · "
+                f"**[Solar Activity Dashboard]({SOLAR_DASHBOARD_URL})**"
+            ),
+        }
+    )
+    cards.append(
+        {
+            "type": "iframe",
+            "url": CME_VISUALIZATION_URL,
+            "aspect_ratio": "75%",
+        }
+    )
+
     # --- Solar imagery (best effort - static NASA image feeds) -----------------
     cards.append(
         {
@@ -308,6 +333,14 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                         "url_path": "https://soho.nascom.nasa.gov/data/realtime/",
                     },
                 },
+                {
+                    "type": "picture",
+                    "image": SUVI_195_URL,
+                    "tap_action": {
+                        "action": "url",
+                        "url_path": SOLAR_DASHBOARD_URL,
+                    },
+                },
             ],
         }
     )
@@ -315,9 +348,10 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
         {
             "type": "markdown",
             "content": (
-                "SDO AIA 193Å (left) and SOHO LASCO C3 running-difference "
-                "coronagraph (right). These load straight from NASA and only "
-                "refresh when the dashboard reloads."
+                "SDO AIA 193Å, SOHO LASCO C3 running-difference coronagraph, "
+                "and GOES SUVI 195Å (coronal holes show as dark patches, "
+                "usually near the poles). These load straight from NASA and "
+                "only refresh when the dashboard reloads."
             ),
         }
     )

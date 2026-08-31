@@ -76,13 +76,35 @@ someone 400 km away but at the same latitude as you tells you far more than
 someone 50 km away but well to your north - see the example automation
 below.
 
+**The full 3D CME & coronal hole visualization**
+
+The web app's interactive 3D model - CME propagation through the solar
+system, coronal hole overlays, the works - isn't something a Lovelace card
+can reasonably rebuild (see [What this doesn't
+include](#what-this-doesnt-include)). Instead the dashboard links straight to
+it on the live site, and tries to embed it in an iframe right there on the
+page:
+
+- **[spottheaurora.co.nz/cme-visualization](https://www.spottheaurora.co.nz/cme-visualization)**
+  — the full 3D CME model
+- **[spottheaurora.co.nz/solar-dashboard](https://www.spottheaurora.co.nz/solar-dashboard)**
+  — the site's own solar activity dashboard
+
+The embed depends on the site allowing itself to be framed; if it doesn't,
+you'll see a blank box where the iframe is, but the links above it always
+work. For something that's guaranteed to render inside Home Assistant, the
+dashboard also pulls the raw GOES SUVI 195Å image directly - coronal holes
+show up as dark patches on it, generally near the poles, no processing
+required.
+
 **A ready-made dashboard**
 
 An **Aurora** item appears in your sidebar with the oval map, the 3-day
 forecast, the visibility forecast, solar wind readings, X-ray/proton flux,
-a reportings map, CME and flare lists, solar imagery and history graphs
-already laid out. Nothing to configure. Turn it off during setup if you'd
-rather build your own.
+a reportings map, CME and flare lists, a link (and best-effort embed) to
+the live 3D visualization, solar imagery and history graphs already laid
+out. Nothing to configure. Turn it off during setup if you'd rather build
+your own.
 
 **Map card**
 
@@ -282,12 +304,15 @@ when the dashboard reloads, not continuously.
 ## What this doesn't include
 
 The web app's full 3D CME propagation simulation (Three.js, animated
-timelines, GIF export) isn't ported here - Lovelace cards aren't a great
-home for a 3D physics sim, and it wouldn't add much over the numbers
-themselves. This integration gives you the same underlying data (CME
-speed, direction, Earth-directed flag, predicted arrival) as sensors and a
-dashboard list instead, which is what automations and glanceable dashboards
-actually need.
+timelines, GIF export, live coronal hole detection) isn't ported here -
+Lovelace cards aren't a great home for a 3D physics sim or a client-side
+image-processing pipeline, and it wouldn't add much over the numbers
+themselves. This integration gives you the same underlying data (CME speed,
+direction, Earth-directed flag, predicted arrival) as sensors and a
+dashboard list, a raw coronal-hole image straight from NOAA, and a link
+(plus best-effort embed) to the real thing on the live site - see "The full
+3D CME & coronal hole visualization" under [What you get](#what-you-get)
+above.
 
 ## Licence
 

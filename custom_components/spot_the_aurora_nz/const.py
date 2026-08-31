@@ -35,6 +35,17 @@ PROTON_SOURCES = ("solar1", "ace", "imap")
 SIGHTINGS_URL = "https://aurora-sightings.thenamesrock.workers.dev/"
 NZ_TIMEZONE = "Pacific/Auckland"
 
+# The full web app - its 3D CME/coronal-hole visualization and solar
+# activity dashboard aren't practical to rebuild as a Lovelace card, so the
+# integration's dashboard links (and tries to embed) the live pages instead.
+APP_BASE_URL = "https://www.spottheaurora.co.nz"
+CME_VISUALIZATION_URL = f"{APP_BASE_URL}/cme-visualization"
+SOLAR_DASHBOARD_URL = f"{APP_BASE_URL}/solar-dashboard"
+
+# Raw NOAA SUVI 195A image - coronal holes are the dark patches, same source
+# image the app's client-side coronal hole detector analyses.
+SUVI_195_URL = "https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png"
+
 DEFAULT_SCAN_INTERVAL = timedelta(seconds=60)
 FORECAST_SCAN_MULTIPLIER = 2  # composite score polled half as often
 SLOW_POLL_TICKS = 10  # CMEs/flares/x-ray/proton change slowly - poll rarely
