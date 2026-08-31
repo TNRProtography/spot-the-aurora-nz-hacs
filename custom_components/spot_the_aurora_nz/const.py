@@ -41,6 +41,9 @@ NZ_TIMEZONE = "Pacific/Auckland"
 APP_BASE_URL = "https://www.spottheaurora.co.nz"
 CME_VISUALIZATION_URL = f"{APP_BASE_URL}/cme-visualization"
 SOLAR_DASHBOARD_URL = f"{APP_BASE_URL}/solar-dashboard"
+# The advanced forecast view is where the live reportings map and the
+# "report a sighting" form live.
+REPORTINGS_MAP_URL = f"{APP_BASE_URL}/spot-the-aurora-forecast-advanced-view"
 
 # Raw NOAA SUVI 195A image - coronal holes are the dark patches, same source
 # image the app's client-side coronal hole detector analyses.

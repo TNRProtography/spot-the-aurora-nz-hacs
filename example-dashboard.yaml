@@ -100,6 +100,10 @@ cards:
     default_zoom: 5
 
   # ── Reportings, CMEs and flares as plain-text lists ─────────────────────────
+  # CMEs and flares link each entry through to its own NASA DONKI detail
+  # page - the same page the app itself opens when you click one in its
+  # list. Reportings don't have individual pages, so that card links to the
+  # live map instead.
   - type: markdown
     title: Aurora reportings today
     content: >
@@ -111,25 +115,31 @@ cards:
       {% endfor %}
       {% else %}
       No reportings since midday.
+
       {% endif %}
+      [View the live map & report a sighting →](https://www.spottheaurora.co.nz/spot-the-aurora-forecast-advanced-view)
 
   - type: markdown
     title: Recent CMEs
     content: >
       {% set cmes = state_attr('sensor.cme_count', 'cmes') or [] %}
       {% for c in cmes[:10] %}
-      **{{ c.speed_km_s | round(0) }} km/s**{% if c.is_earth_directed %} · 🌍 Earth-directed{% endif %}
+      {% set label = (as_timestamp(c.start_time) | timestamp_custom('%-d %b, %-I:%M %p')) if c.start_time else 'Unknown time' %}
+      **{% if c.link %}[{{ label }}]({{ c.link }}){% else %}{{ label }}{% endif %}** — {{ c.speed_km_s | round(0) }} km/s{% if c.is_earth_directed %} · 🌍 Earth-directed{% endif %}
 
       {% endfor %}
+      [Open the full 3D visualization →](https://www.spottheaurora.co.nz/cme-visualization)
 
   - type: markdown
     title: Recent solar flares
     content: >
       {% set flares = state_attr('sensor.solar_flare_count', 'flares') or [] %}
       {% for f in flares[:10] %}
-      **{{ f.class_type or '?' }}** — {{ f.source_location or 'unknown region' }}
+      {% set label = f.class_type or '?' %}
+      **{% if f.link %}[{{ label }}]({{ f.link }}){% else %}{{ label }}{% endif %}** — {{ f.source_location or 'unknown region' }}
 
       {% endfor %}
+      [Open the full 3D visualization →](https://www.spottheaurora.co.nz/cme-visualization)
 
   # ── Full 3D CME & coronal hole visualization (the live web app) ─────────────
   # This dashboard only has the data - the real interactive 3D model lives on

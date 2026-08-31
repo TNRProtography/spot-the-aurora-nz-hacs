@@ -10,7 +10,13 @@ import logging
 
 from homeassistant.core import HomeAssistant
 
-from .const import CME_VISUALIZATION_URL, DOMAIN, SOLAR_DASHBOARD_URL, SUVI_195_URL
+from .const import (
+    CME_VISUALIZATION_URL,
+    DOMAIN,
+    REPORTINGS_MAP_URL,
+    SOLAR_DASHBOARD_URL,
+    SUVI_195_URL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -198,6 +204,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
     )
 
     # --- Reportings list -------------------------------------------------------
+    # Sightings don't have individual detail pages on the app - the closest
+    # thing is the live reportings map, which is one link for the whole card
+    # rather than per-row (there's nothing per-row to link to).
     if sightings_count:
         cards.append(
             {
@@ -215,8 +224,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     "{{ as_timestamp(s.reported_at) | timestamp_custom('%-I:%M %p') }}\n\n"
                     "{% endfor %}"
                     "{% else %}"
-                    "No reportings since midday - be the first tonight!"
+                    "No reportings since midday - be the first tonight!\n\n"
                     "{% endif %}"
+                    f"[View the live map & report a sighting →]({REPORTINGS_MAP_URL})"
                 ),
             }
         )
@@ -237,6 +247,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
         )
 
     # --- CME list ---------------------------------------------------------------
+    # Each CME carries its own NASA DONKI detail-page link (the same page the
+    # app itself opens when you click a CME in its list) - use it so every
+    # entry here is clickable through to the real thing.
     if cme_count:
         cards.append(
             {
@@ -248,8 +261,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     + "', 'cmes') or [] %}"
                     "{% if cmes %}"
                     "{% for c in cmes[:10] %}"
-                    "**{{ as_timestamp(c.start_time) | timestamp_custom('%-d %b, %-I:%M %p') "
-                    "if c.start_time else 'Unknown time' }}** — "
+                    "{% set label = (as_timestamp(c.start_time) | timestamp_custom('%-d %b, %-I:%M %p')) "
+                    "if c.start_time else 'Unknown time' %}"
+                    "**{% if c.link %}[{{ label }}]({{ c.link }}){% else %}{{ label }}{% endif %}** — "
                     "{{ c.speed_km_s | round(0) }} km/s"
                     "{% if c.is_earth_directed %} · 🌍 Earth-directed{% endif %}"
                     "{% if c.predicted_arrival_time %} · arrival ~"
@@ -257,8 +271,9 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     "{% endif %}\n\n"
                     "{% endfor %}"
                     "{% else %}"
-                    "No recent CMEs from NASA DONKI."
+                    "No recent CMEs from NASA DONKI.\n\n"
                     "{% endif %}"
+                    f"[Open the full 3D visualization →]({CME_VISUALIZATION_URL})"
                 ),
             }
         )
@@ -275,14 +290,17 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
                     + "', 'flares') or [] %}"
                     "{% if flares %}"
                     "{% for f in flares[:10] %}"
-                    "**{{ f.class_type or '?' }}** — {{ f.source_location or 'unknown region' }}"
+                    "{% set label = f.class_type or '?' %}"
+                    "**{% if f.link %}[{{ label }}]({{ f.link }}){% else %}{{ label }}{% endif %}** — "
+                    "{{ f.source_location or 'unknown region' }}"
                     "{% if f.peak_time %} · peak "
                     "{{ as_timestamp(f.peak_time) | timestamp_custom('%-d %b, %-I:%M %p') }}"
                     "{% endif %}\n\n"
                     "{% endfor %}"
                     "{% else %}"
-                    "No recent flares from NASA DONKI."
+                    "No recent flares from NASA DONKI.\n\n"
                     "{% endif %}"
+                    f"[Open the full 3D visualization →]({CME_VISUALIZATION_URL})"
                 ),
             }
         )
