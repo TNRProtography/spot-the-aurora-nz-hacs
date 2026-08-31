@@ -55,6 +55,16 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
     power = e("hemispheric_power")
     moon = e("moon_illumination")
 
+    cme_count = e("cme_count")
+    flare_count = e("solar_flare_count")
+    xray = e("x_ray_flux_long_band")
+    proton_solar1 = e("proton_flux_solar_1")
+    proton_ace = e("proton_flux_ace")
+    proton_imap = e("proton_flux_imap")
+    sightings_count = e("aurora_sightings_today")
+    closest_distance = e("closest_sighting_distance")
+    closest_lat_delta = e("closest_sighting_latitude_difference")
+
     def rows(*pairs) -> list[dict]:
         return [
             {"entity": eid, "name": name}
@@ -157,6 +167,161 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
             }
         )
 
+    # --- X-ray & proton flux -------------------------------------------------
+    xray_glance = rows(
+        (xray, "X-ray (long)"),
+        (proton_solar1, "Protons SOLAR-1"),
+        (proton_ace, "Protons ACE"),
+        (proton_imap, "Protons IMAP"),
+        (cme_count, "CMEs tracked"),
+        (flare_count, "Flares tracked"),
+    )
+    if xray_glance:
+        cards.append(
+            {
+                "type": "glance",
+                "title": "X-ray flux & proton flux",
+                "columns": 3,
+                "entities": xray_glance,
+            }
+        )
+
+    # --- Map, with every current reporting on it ------------------------------
+    cards.append(
+        {
+            "type": "map",
+            "title": "Reportings map",
+            "geo_location_sources": [DOMAIN],
+            "default_zoom": 5,
+            "entities": [],
+        }
+    )
+
+    # --- Reportings list -------------------------------------------------------
+    if sightings_count:
+        cards.append(
+            {
+                "type": "markdown",
+                "title": "Aurora reportings today",
+                "content": (
+                    "{% set sightings = state_attr('"
+                    + sightings_count
+                    + "', 'sightings') or [] %}"
+                    "{% if sightings %}"
+                    "{% for s in sightings[:15] %}"
+                    "**{{ s.emoji }} {{ s.name }}** — {{ s.status_label }}"
+                    "{% if s.distance_km is not none %} · {{ s.distance_km }} km away"
+                    "{% endif %} · "
+                    "{{ as_timestamp(s.reported_at) | timestamp_custom('%-I:%M %p') }}\n\n"
+                    "{% endfor %}"
+                    "{% else %}"
+                    "No reportings since midday - be the first tonight!"
+                    "{% endif %}"
+                ),
+            }
+        )
+
+    # --- Closest reporting, for at-a-glance proximity ---------------------------
+    closest = rows(
+        (closest_distance, "Distance"),
+        (closest_lat_delta, "Latitude difference"),
+    )
+    if closest:
+        cards.append(
+            {
+                "type": "glance",
+                "title": "Closest reporting",
+                "columns": 2,
+                "entities": closest,
+            }
+        )
+
+    # --- CME list ---------------------------------------------------------------
+    if cme_count:
+        cards.append(
+            {
+                "type": "markdown",
+                "title": "Recent CMEs",
+                "content": (
+                    "{% set cmes = state_attr('"
+                    + cme_count
+                    + "', 'cmes') or [] %}"
+                    "{% if cmes %}"
+                    "{% for c in cmes[:10] %}"
+                    "**{{ as_timestamp(c.start_time) | timestamp_custom('%-d %b, %-I:%M %p') "
+                    "if c.start_time else 'Unknown time' }}** — "
+                    "{{ c.speed_km_s | round(0) }} km/s"
+                    "{% if c.is_earth_directed %} · 🌍 Earth-directed{% endif %}"
+                    "{% if c.predicted_arrival_time %} · arrival ~"
+                    "{{ as_timestamp(c.predicted_arrival_time) | timestamp_custom('%-d %b, %-I:%M %p') }}"
+                    "{% endif %}\n\n"
+                    "{% endfor %}"
+                    "{% else %}"
+                    "No recent CMEs from NASA DONKI."
+                    "{% endif %}"
+                ),
+            }
+        )
+
+    # --- Flare list ---------------------------------------------------------------
+    if flare_count:
+        cards.append(
+            {
+                "type": "markdown",
+                "title": "Recent solar flares",
+                "content": (
+                    "{% set flares = state_attr('"
+                    + flare_count
+                    + "', 'flares') or [] %}"
+                    "{% if flares %}"
+                    "{% for f in flares[:10] %}"
+                    "**{{ f.class_type or '?' }}** — {{ f.source_location or 'unknown region' }}"
+                    "{% if f.peak_time %} · peak "
+                    "{{ as_timestamp(f.peak_time) | timestamp_custom('%-d %b, %-I:%M %p') }}"
+                    "{% endif %}\n\n"
+                    "{% endfor %}"
+                    "{% else %}"
+                    "No recent flares from NASA DONKI."
+                    "{% endif %}"
+                ),
+            }
+        )
+
+    # --- Solar imagery (best effort - static NASA image feeds) -----------------
+    cards.append(
+        {
+            "type": "grid",
+            "title": "Solar imagery",
+            "columns": 2,
+            "square": False,
+            "cards": [
+                {
+                    "type": "picture",
+                    "image": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg",
+                    "tap_action": {"action": "url", "url_path": "https://sdo.gsfc.nasa.gov/data/"},
+                },
+                {
+                    "type": "picture",
+                    "image": "https://soho.nascom.nasa.gov/data/realtime/c3diff/1024/latest.jpg",
+                    "tap_action": {
+                        "action": "url",
+                        "url_path": "https://soho.nascom.nasa.gov/data/realtime/",
+                    },
+                },
+            ],
+        }
+    )
+    cards.append(
+        {
+            "type": "markdown",
+            "content": (
+                "SDO AIA 193Å (left) and SOHO LASCO C3 running-difference "
+                "coronagraph (right). These load straight from NASA and only "
+                "refresh when the dashboard reloads."
+            ),
+        }
+    )
+
     # --- History ------------------------------------------------------------
     if imf := ids(bt, bz, bz30, by):
         cards.append(
@@ -212,10 +377,12 @@ def build_dashboard_config(hass: HomeAssistant) -> dict:
         {
             "type": "markdown",
             "content": (
-                "Kp forecast from "
-                "[NOAA SWPC](https://www.swpc.noaa.gov/). "
-                "Solar wind and aurora data via Spot The Aurora. "
-                "Forecast algorithm by "
+                "Kp forecast, X-ray flux and CME/flare catalog from "
+                "[NOAA SWPC](https://www.swpc.noaa.gov/) and "
+                "[NASA DONKI](https://ccmc.gsfc.nasa.gov/tools/DONKI/). "
+                "Proton flux from the SOLAR-1, ACE and IMAP spacecraft. "
+                "Solar wind, aurora reportings and forecast algorithm via "
+                "[Spot The Aurora](https://www.spottheaurora.co.nz), by "
                 "[TNR Protography](https://www.tnrprotography.co.nz)."
             ),
         }

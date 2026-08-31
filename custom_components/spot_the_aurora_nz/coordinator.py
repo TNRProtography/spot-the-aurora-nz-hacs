@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from datetime import timedelta
 from typing import Any
 
@@ -12,17 +13,25 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CME_URL,
     CONF_LOCATION,
     CONF_LOCATION_MODE,
     CONF_TRACKED_ENTITY,
     DOMAIN,
+    EPAM_BASE,
+    FLARE_URL,
     FORECAST_URL,
     KP_FORECAST_URL,
     MODE_ENTITY,
     MODE_HOME,
     MODE_PIN,
+    PROTON_SOURCES,
     RTSW_URL,
+    SIGHTINGS_POLL_TICKS,
+    SIGHTINGS_URL,
+    SLOW_POLL_TICKS,
     SUBSTORM_URL,
+    XRAY_URL,
 )
 from .oval import (
     compute_oval_boundary,
@@ -32,6 +41,13 @@ from .oval import (
     project_scores,
     visibility_line,
     visibility_tier,
+)
+from .spacedata import (
+    process_cme_data,
+    process_flare_data,
+    process_proton_source,
+    process_sightings,
+    process_xray,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,6 +77,11 @@ class AuroraCoordinator(DataUpdateCoordinator):
         self._session = async_get_clientsession(hass)
         self._forecast_cache: dict[str, Any] = {}
         self._kp_cache: list[dict[str, Any]] = []
+        self._cme_cache: list[dict[str, Any]] = []
+        self._flare_cache: list[dict[str, Any]] = []
+        self._xray_cache: dict[str, Any] = {}
+        self._proton_cache: dict[str, dict[str, Any] | None] = {}
+        self._sightings_raw: list[Any] = []
         self._tick = 0
 
     def _resolve_location(self) -> None:
@@ -131,41 +152,68 @@ class AuroraCoordinator(DataUpdateCoordinator):
         self._tick += 1
         self._resolve_location()
 
-        tasks = [
-            self._fetch(SUBSTORM_URL, "Substorm worker"),
-            self._fetch(RTSW_URL, "RTSW solar wind"),
-        ]
-        # NOAA reissues the Kp forecast a few times a day, so poll it rarely.
-        # Retry every cycle until we have data, then poll rarely - NOAA
-        # only reissues the forecast a few times a day.
+        jobs: dict[str, Any] = {
+            "substorm": self._fetch(SUBSTORM_URL, "Substorm worker"),
+            "rtsw": self._fetch(RTSW_URL, "RTSW solar wind"),
+        }
+        # NOAA reissues the Kp forecast a few times a day, so poll it rarely -
+        # retry every cycle until we have data, then settle down.
         want_kp = not self._kp_cache or self._tick % 10 == 1
         # The composite forecast payload is large; poll it half as often.
         want_forecast = self._tick % 2 == 1 or not self._forecast_cache
+        # CMEs, flares and X-ray/proton flux change on the order of minutes
+        # to hours, not seconds - poll them rarely too.
+        want_slow = not self._cme_cache or self._tick % SLOW_POLL_TICKS == 1
+        want_sightings = self._tick % SIGHTINGS_POLL_TICKS == 1
         if want_forecast:
-            tasks.append(self._fetch(FORECAST_URL, "Spot The Aurora forecast"))
+            jobs["forecast"] = self._fetch(FORECAST_URL, "Spot The Aurora forecast")
         if want_kp:
-            tasks.append(self._fetch(KP_FORECAST_URL, "NOAA Kp forecast"))
+            jobs["kp"] = self._fetch(KP_FORECAST_URL, "NOAA Kp forecast")
+        if want_slow:
+            jobs["cme"] = self._fetch(CME_URL, "NASA DONKI CME")
+            jobs["flare"] = self._fetch(FLARE_URL, "NASA DONKI FLR")
+            jobs["xray"] = self._fetch(XRAY_URL, "GOES X-ray flux")
+            for source in PROTON_SOURCES:
+                jobs[f"proton_{source}"] = self._fetch(
+                    f"{EPAM_BASE}/epam/raw?source={source}", f"EPAM {source}"
+                )
+        if want_sightings:
+            jobs["sightings"] = self._fetch(SIGHTINGS_URL, "Aurora sightings")
 
-        results = await asyncio.gather(*tasks)
-        substorm = results[0]
-        rtsw = results[1]
-        idx = 2
-        if want_forecast:
-            if results[idx]:
-                self._forecast_cache = results[idx]
-            idx += 1
-        if want_kp and idx < len(results):
-            parsed = _parse_kp_forecast(results[idx])
+        keys = list(jobs)
+        results = await asyncio.gather(*(jobs[key] for key in keys))
+        by_key = dict(zip(keys, results))
+
+        substorm = by_key["substorm"]
+        rtsw = by_key["rtsw"]
+
+        if want_forecast and by_key.get("forecast"):
+            self._forecast_cache = by_key["forecast"]
+        forecast = self._forecast_cache
+
+        if want_kp:
+            parsed = _parse_kp_forecast(by_key.get("kp"))
             if parsed:
                 if not self._kp_cache:
                     _LOGGER.info("Kp forecast loaded: %s entries", len(parsed))
                 self._kp_cache = parsed
-            elif results[idx] is not None:
+            elif by_key.get("kp") is not None:
                 _LOGGER.warning(
                     "NOAA Kp forecast returned an unexpected shape: %.200s",
-                    results[idx],
+                    by_key["kp"],
                 )
-        forecast = self._forecast_cache
+
+        if want_slow:
+            self._cme_cache = process_cme_data(by_key.get("cme"))
+            self._flare_cache = process_flare_data(by_key.get("flare"))
+            self._xray_cache = process_xray(by_key.get("xray"))
+            self._proton_cache = {
+                source: process_proton_source(by_key.get(f"proton_{source}"))
+                for source in PROTON_SOURCES
+            }
+
+        if want_sightings and by_key.get("sightings") is not None:
+            self._sightings_raw = by_key["sightings"]
 
         if not substorm and not forecast:
             raise UpdateFailed("No data from either upstream service")
@@ -286,6 +334,50 @@ class AuroraCoordinator(DataUpdateCoordinator):
             data["geomagnetic_latitude"] = round(gmag, 2)
             data["kp_threshold"] = round(kp_threshold_for_latitude(gmag), 1)
 
+        # --- CMEs and flares --------------------------------------------
+        data["cmes"] = self._cme_cache
+        data["cme_count"] = len(self._cme_cache)
+        data["latest_cme_speed"] = (
+            self._cme_cache[0]["speed_km_s"] if self._cme_cache else None
+        )
+
+        data["flares"] = self._flare_cache
+        data["flare_count"] = len(self._flare_cache)
+        data["latest_flare_class"] = (
+            self._flare_cache[0]["class_type"] if self._flare_cache else None
+        )
+
+        # --- X-ray flux ----------------------------------------------------
+        data.update(self._xray_cache)
+
+        # --- Proton flux, per L1 spacecraft --------------------------------
+        for source in PROTON_SOURCES:
+            reading = self._proton_cache.get(source)
+            data[f"proton_{source}"] = reading["value"] if reading else None
+            data[f"proton_{source}_channels"] = reading["channels"] if reading else None
+            data[f"proton_{source}_time"] = reading["time_tag"] if reading else None
+
+        # --- Aurora sightings ("reportings") --------------------------------
+        sightings = process_sightings(self._sightings_raw, self.latitude, self.longitude)
+        data["sightings"] = sightings
+        data["sightings_count"] = len(sightings)
+        data["sightings_visible_count"] = sum(
+            1 for s in sightings if s["is_visible_sighting"]
+        )
+        closest = None
+        if sightings and self.latitude is not None and self.longitude is not None:
+            closest = min(sightings, key=lambda s: s.get("distance_km", math.inf))
+        data["closest_sighting"] = closest
+        data["closest_sighting_distance_km"] = (
+            closest.get("distance_km") if closest else None
+        )
+        data["closest_sighting_latitude_delta_deg"] = (
+            closest.get("latitude_delta_deg") if closest else None
+        )
+        data["closest_sighting_latitude_delta_km"] = (
+            closest.get("latitude_delta_km") if closest else None
+        )
+
         return data
 
 
@@ -321,26 +413,51 @@ def _avg_by_30m(rtsw: Any) -> float | None:
 
 
 def _parse_kp_forecast(raw: Any) -> list[dict[str, Any]]:
-    """NOAA returns a header row then [time_tag, kp, observed, noaa_scale]."""
-    if not isinstance(raw, list) or len(raw) < 2:
+    """Parse NOAA's planetary Kp forecast.
+
+    NOAA has served this product in two different shapes over time, and
+    switches between them without notice:
+
+      - array-of-arrays, with a header row: [["time_tag","kp",...], [v, v, ...], ...]
+      - array-of-objects: [{"time_tag": ..., "kp": ..., "observed": ..., "noaa_scale": ...}, ...]
+
+    Handle both, the same way the web app's KpForecastTimeline does.
+    """
+    if not isinstance(raw, list) or not raw:
         return []
 
+    is_objects = isinstance(raw[0], dict)
+    rows = raw if is_objects else raw[1:]
+
     out: list[dict[str, Any]] = []
-    for row in raw[1:]:
-        if not isinstance(row, list) or len(row) < 3:
+    for row in rows:
+        if is_objects:
+            if not isinstance(row, dict):
+                continue
+            time_raw = row.get("time_tag")
+            kp_raw = row.get("kp")
+            observed_raw = row.get("observed")
+        else:
+            if not isinstance(row, list) or len(row) < 2:
+                continue
+            time_raw = row[0]
+            kp_raw = row[1]
+            observed_raw = row[2] if len(row) > 2 else None
+
+        if time_raw is None or kp_raw is None:
             continue
         try:
-            time_tag = str(row[0]).replace(" ", "T")
+            time_tag = str(time_raw).replace(" ", "T")
             if not time_tag.endswith("Z"):
                 time_tag += "Z"
-            kp = float(row[1])
+            kp = float(kp_raw)
         except (TypeError, ValueError):
             continue
         out.append(
             {
                 "t": time_tag,
                 "kp": round(kp, 2),
-                "observed": str(row[2]).lower() if len(row) > 2 else "predicted",
+                "observed": str(observed_raw).lower() if observed_raw else "predicted",
             }
         )
     return out

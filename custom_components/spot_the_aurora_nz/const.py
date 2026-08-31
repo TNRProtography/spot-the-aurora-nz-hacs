@@ -17,8 +17,28 @@ KP_FORECAST_URL = (
     "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json"
 )
 
+# CME and solar flare catalog, proxied from NASA DONKI (same source the CME
+# Modeler app uses).
+DONKI_BASE = "https://nasa-donki-api.thenamesrock.workers.dev"
+CME_URL = f"{DONKI_BASE}/CME"
+FLARE_URL = f"{DONKI_BASE}/FLR"
+
+# GOES primary X-ray flux (short 0.05-0.4nm / long 0.1-0.8nm bands).
+XRAY_URL = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
+
+# Energetic-particle (proton/electron) feeds from three independent L1
+# spacecraft, proxied by the same worker the app's EPAM panel uses.
+EPAM_BASE = "https://epam.thenamesrock.workers.dev"
+PROTON_SOURCES = ("solar1", "ace", "imap")
+
+# Community aurora sightings ("reportings").
+SIGHTINGS_URL = "https://aurora-sightings.thenamesrock.workers.dev/"
+NZ_TIMEZONE = "Pacific/Auckland"
+
 DEFAULT_SCAN_INTERVAL = timedelta(seconds=60)
 FORECAST_SCAN_MULTIPLIER = 2  # composite score polled half as often
+SLOW_POLL_TICKS = 10  # CMEs/flares/x-ray/proton change slowly - poll rarely
+SIGHTINGS_POLL_TICKS = 2  # sightings are near-real-time - poll every couple of minutes
 
 CONF_LOCATION_MODE = "location_mode"
 CONF_LOCATION = "location"
