@@ -63,12 +63,22 @@ Custom repositories work fine and most cards never go further. If you want
 yours listed by default:
 
 1. Your repo must pass the HACS action (the included `validate.yml` runs it)
-2. Add a brand to [home-assistant/brands](https://github.com/home-assistant/brands)
-3. Open a PR against [hacs/default](https://github.com/hacs/default)
+2. Open a PR against [hacs/default](https://github.com/hacs/default)
 
 Requirements: public repo, a description, topics set, at least one release,
 a README, and a licence. This repo has all of those. Expect the PR to sit
 for a while — the queue is long.
+
+**Brand icon:** don't submit to `home-assistant/brands` - as of HA 2026.3.0
+that repo no longer accepts new custom-component PRs (its own PR template
+says so, pointing at the [Brands Proxy API
+announcement](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api)).
+Ship the icon locally instead, at `custom_components/spot_the_aurora_nz/brand/icon.png`
+(256×256, plus `icon@2x.png` at 512×512 and optionally `logo.png` /
+`logo@2x.png`) - HA serves it straight from the installed integration via
+the brands proxy API, and HACS's own brand-assets check looks for that
+exact path before it ever falls back to checking the old brands repo. This
+repo already has it.
 
 ## Maintaining it
 
